@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="SentinelOne">
+  <defs>
+    <linearGradient id="s1grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6b2cf5"/>
+      <stop offset="0.55" stop-color="#7a1fd6"/>
+      <stop offset="1" stop-color="#b5179e"/>
+    </linearGradient>
+    <linearGradient id="s1shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.25"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Fundo arredondado com o gradiente da marca -->
+  <rect x="8" y="8" width="184" height="184" rx="42" fill="url(#s1grad)"/>
+  <rect x="8" y="8" width="184" height="184" rx="42" fill="url(#s1shine)"/>
+
+  <!-- Escudo (endpoint protegido) -->
+  <path d="M100 34 L152 53 V104 C152 139 128 160 100 168 C72 160 48 139 48 104 V53 Z"
+        fill="rgba(255,255,255,0.12)" stroke="#ffffff" stroke-width="6" stroke-linejoin="round"/>
+
+  <!-- Marca S1 -->
+  <text x="100" y="123" text-anchor="middle"
+        font-family="DejaVu Sans, Segoe UI, Arial, sans-serif"
+        font-size="62" font-weight="700" fill="#ffffff" letter-spacing="2">S1</text>
+</svg>

@@ -1,0 +1,2 @@
+-- Schema is created by hook.php during plugin installation.
+-- This file is kept so the plugin has a conventional install/sql location.

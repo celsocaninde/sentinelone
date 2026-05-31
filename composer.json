@@ -1,0 +1,14 @@
+{
+  "name": "internal/glpi-sentinelone",
+  "description": "GLPI plugin to integrate SentinelOne endpoints and threats.",
+  "type": "glpi-plugin",
+  "license": "GPL-3.0-or-later",
+  "autoload": {
+    "psr-4": {
+      "GlpiPlugin\\Sentinelone\\": "src/"
+    }
+  },
+  "require": {
+    "php": ">=8.2"
+  }
+}
