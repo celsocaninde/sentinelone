@@ -1,8 +1,14 @@
 # GLPI SentinelOne Plugin
 
+> 🛡️ **PT-BR:** Plugin para GLPI 11 que integra dados do SentinelOne ao inventario e ao service desk, com dashboard operacional, sincronizacao de agentes e ameacas, tickets automaticos, alertas por e-mail e relatorios de cobertura de endpoints.
+>
+> 🛡️ **English:** A GLPI 11 plugin that integrates SentinelOne endpoint security data into inventory and service desk workflows, with an operational dashboard, agent and threat synchronization, automatic tickets, email alerts, and endpoint coverage reports.
+
 Plugin para GLPI 11 que integra dados do SentinelOne em modo inicialmente somente leitura, com interface alinhada a identidade visual da marca (roxo -> magenta).
 
-Versao atual: `0.4.1`. Autoria: Celso / Codex / Claude.
+Versao atual: `0.4.6`. Autoria: Celso / Codex / Claude.
+
+Descricoes prontas para GitHub, README, releases e divulgacao estao em [`DESCRIPTIONS.md`](DESCRIPTIONS.md).
 
 ## Estado atual
 
