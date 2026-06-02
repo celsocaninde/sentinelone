@@ -119,17 +119,32 @@ function plugin_sentinelone_install(): bool
    SentineloneConfig::installDefaults();
    Profile::ensureProfileRights();
 
+   // mode: execucao automatica via CLI (cron do sistema).
+   // allowmode: INTERNAL | EXTERNAL para que o botao "Executar" (modo web/GLPI)
+   // tambem fique disponivel para acionamento manual a partir da interface.
    CronTask::register(Sync::class, 'syncagents', HOUR_TIMESTAMP, [
       'mode'      => CronTask::MODE_EXTERNAL,
-      'allowmode' => CronTask::MODE_EXTERNAL,
+      'allowmode' => CronTask::MODE_INTERNAL | CronTask::MODE_EXTERNAL,
       'state'     => CronTask::STATE_DISABLE,
    ]);
 
    CronTask::register(Sync::class, 'syncthreats', HOUR_TIMESTAMP, [
       'mode'      => CronTask::MODE_EXTERNAL,
-      'allowmode' => CronTask::MODE_EXTERNAL,
+      'allowmode' => CronTask::MODE_INTERNAL | CronTask::MODE_EXTERNAL,
       'state'     => CronTask::STATE_DISABLE,
    ]);
+
+   // CronTask::register() nao atualiza linhas ja existentes. Para instalacoes
+   // anteriores (allowmode = EXTERNAL apenas, sem o botao "Executar"), corrige
+   // o allowmode das tasks ja registradas de forma idempotente.
+   $DB->update(
+      'glpi_crontasks',
+      ['allowmode' => CronTask::MODE_INTERNAL | CronTask::MODE_EXTERNAL],
+      [
+         'itemtype' => Sync::class,
+         'name'     => ['syncagents', 'syncthreats'],
+      ]
+   );
 
    $migration->executeMigration();
 
