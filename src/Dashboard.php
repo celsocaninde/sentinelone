@@ -2,6 +2,9 @@
 
 namespace GlpiPlugin\Sentinelone;
 
+use GlpiPlugin\Sentinelone\Group;
+use GlpiPlugin\Sentinelone\Sync;
+
 /**
  * Cards de KPI do SentinelOne para o dashboard nativo do GLPI.
  *
@@ -28,21 +31,29 @@ class Dashboard
       }
 
       $defs = [
-         'plugin_sentinelone_agents_total'         => 'cardAgentsTotal',
-         'plugin_sentinelone_agents_online'        => 'cardAgentsOnline',
-         'plugin_sentinelone_agents_infected'      => 'cardAgentsInfected',
-         'plugin_sentinelone_threats_total'        => 'cardThreatsTotal',
-         'plugin_sentinelone_threats_no_ticket'    => 'cardThreatsNoTicket',
+         'plugin_sentinelone_agents_total'          => 'cardAgentsTotal',
+         'plugin_sentinelone_agents_online'         => 'cardAgentsOnline',
+         'plugin_sentinelone_agents_infected'       => 'cardAgentsInfected',
+         'plugin_sentinelone_agents_quarantined'    => 'cardAgentsQuarantined',
+         'plugin_sentinelone_agents_outdated'       => 'cardAgentsOutdated',
+         'plugin_sentinelone_threats_total'         => 'cardThreatsTotal',
+         'plugin_sentinelone_threats_no_ticket'     => 'cardThreatsNoTicket',
          'plugin_sentinelone_computers_unprotected' => 'cardComputersUnprotected',
+         'plugin_sentinelone_groups_risky'          => 'cardGroupsRisky',
+         'plugin_sentinelone_rogue_devices'         => 'cardRogueDevices',
       ];
 
       $labels = [
-         'plugin_sentinelone_agents_total'         => 'SentinelOne - Agentes',
-         'plugin_sentinelone_agents_online'        => 'SentinelOne - Agentes online',
-         'plugin_sentinelone_agents_infected'      => 'SentinelOne - Endpoints infectados',
-         'plugin_sentinelone_threats_total'        => 'SentinelOne - Ameacas',
-         'plugin_sentinelone_threats_no_ticket'    => 'SentinelOne - Ameacas sem ticket',
+         'plugin_sentinelone_agents_total'          => 'SentinelOne - Agentes',
+         'plugin_sentinelone_agents_online'         => 'SentinelOne - Agentes online',
+         'plugin_sentinelone_agents_infected'       => 'SentinelOne - Endpoints infectados',
+         'plugin_sentinelone_agents_quarantined'    => 'SentinelOne - Em quarentena',
+         'plugin_sentinelone_agents_outdated'       => 'SentinelOne - Agentes desatualizados',
+         'plugin_sentinelone_threats_total'         => 'SentinelOne - Ameacas',
+         'plugin_sentinelone_threats_no_ticket'     => 'SentinelOne - Ameacas sem ticket',
          'plugin_sentinelone_computers_unprotected' => 'SentinelOne - Computadores sem agente',
+         'plugin_sentinelone_groups_risky'          => 'SentinelOne - Grupos sem protecao plena',
+         'plugin_sentinelone_rogue_devices'         => 'SentinelOne - Dispositivos rogues',
       ];
 
       foreach ($defs as $key => $method) {
@@ -107,6 +118,45 @@ class Dashboard
       );
    }
 
+   public static function cardAgentsQuarantined(array $params = []): array
+   {
+      return self::bigNumber(
+         self::count(Agent::getTable(), ['is_network_quarantine' => 1]),
+         'Em quarentena',
+         'ti ti-network-off',
+         self::frontUrl('agent.php')
+      );
+   }
+
+   public static function cardAgentsOutdated(array $params = []): array
+   {
+      return self::bigNumber(
+         Sync::countOutdatedAgentsPublic(),
+         'Agentes desatualizados',
+         'ti ti-arrow-big-down',
+         self::frontUrl('agent.php')
+      );
+   }
+
+   public static function cardGroupsRisky(array $params = []): array
+   {
+      global $DB;
+
+      $value = 0;
+      if (Profile::hasReadRight() && $DB->tableExists(Group::getTable())) {
+         $r1 = $DB->request(['COUNT' => 'cpt', 'FROM' => Group::getTable(), 'WHERE' => ['policy_mode' => 'detect']])->current();
+         $r2 = $DB->request(['COUNT' => 'cpt', 'FROM' => Group::getTable(), 'WHERE' => ['policy_mode' => 'none']])->current();
+         $value = (int)($r1['cpt'] ?? 0) + (int)($r2['cpt'] ?? 0);
+      }
+
+      return self::bigNumber(
+         $value,
+         'Grupos sem protecao plena',
+         'ti ti-alert-triangle',
+         self::frontUrl('dashboard.php')
+      );
+   }
+
    public static function cardComputersUnprotected(array $params = []): array
    {
       $value = Profile::hasReadRight() ? Agent::countUnprotectedComputers() : 0;
@@ -117,6 +167,18 @@ class Dashboard
          'icon'   => 'ti ti-shield-off',
          'url'    => self::frontUrl('unprotected.php'),
       ];
+   }
+
+   public static function cardRogueDevices(array $params = []): array
+   {
+      $value = Profile::hasReadRight() ? RogueDevice::countTotal() : 0;
+
+      return self::bigNumber(
+         $value,
+         'Dispositivos rogues (Ranger)',
+         'ti ti-ghost',
+         self::frontUrl('rogues.php')
+      );
    }
 
    /**

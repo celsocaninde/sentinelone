@@ -80,6 +80,82 @@ class Notifier
       self::send($recipients, $subject, implode("\n", $lines));
    }
 
+   public static function alertAgentOffline(array $agent, array $config): void
+   {
+      if ((string)($config['alert_on_agent_offline'] ?? '0') !== '1') {
+         return;
+      }
+
+      $recipients = Config::alertEmails($config);
+      if ($recipients === []) {
+         return;
+      }
+
+      $computer = trim((string)($agent['computer_name'] ?? ''));
+      $hours = self::hoursSince((string)($agent['last_active_at'] ?? ''));
+      $subject = '[SentinelOne] Agente offline: ' . ($computer !== '' ? $computer : 'endpoint');
+
+      $lines = [
+         'Um agente SentinelOne esta offline ha mais do que o limite configurado.',
+         '',
+         'Endpoint: ' . self::v($agent['computer_name'] ?? null),
+         'Ultimo contato: ' . self::v($agent['last_active_at'] ?? null),
+         'Offline ha: ' . ($hours !== null ? "{$hours}h" : 'tempo desconhecido'),
+         'Site: ' . self::v($agent['site_name'] ?? null),
+         'Grupo: ' . self::v($agent['group_name'] ?? null),
+         'Versao do agente: ' . self::v($agent['agent_version'] ?? null),
+      ];
+
+      $url = Config::consoleEndpointUrl($config, (string)($agent['sentinelone_id'] ?? ''));
+      if ($url !== '') {
+         $lines[] = '';
+         $lines[] = 'Abrir na console: ' . $url;
+      }
+
+      self::send($recipients, $subject, implode("\n", $lines));
+   }
+
+   private static function hoursSince(string $datetime): ?int
+   {
+      $datetime = trim($datetime);
+      if ($datetime === '') {
+         return null;
+      }
+      try {
+         $diff = time() - (new \DateTimeImmutable($datetime))->getTimestamp();
+         return $diff > 0 ? (int)floor($diff / 3600) : 0;
+      } catch (\Throwable $e) {
+         return null;
+      }
+   }
+
+   public static function sendTestEmail(array $config): array
+   {
+      $recipients = Config::alertEmails($config);
+
+      if ($recipients === []) {
+         return ['ok' => false, 'message' => 'Nenhum e-mail de alerta configurado.'];
+      }
+
+      $body = implode("\n", [
+         'Este e um e-mail de teste do plugin SentinelOne para GLPI.',
+         '',
+         'Se voce recebeu esta mensagem, o envio de alertas esta funcionando corretamente.',
+         '',
+         'Destinatarios configurados: ' . implode(', ', $recipients),
+         'Data/hora: ' . date('Y-m-d H:i:s'),
+      ]);
+
+      $ok = self::send($recipients, '[SentinelOne] E-mail de teste', $body);
+
+      return [
+         'ok'      => $ok,
+         'message' => $ok
+            ? 'E-mail de teste enviado para: ' . implode(', ', $recipients)
+            : 'Falha ao enviar. Verifique as configuracoes de SMTP no GLPI.',
+      ];
+   }
+
    /**
     * @param string[] $recipients
     */

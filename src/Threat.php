@@ -11,6 +11,32 @@ class Threat extends \CommonDBTM
       return $nb > 1 ? 'Ameacas SentinelOne' : 'Ameaca SentinelOne';
    }
 
+   public static function getFormURL($full = true): string
+   {
+      global $CFG_GLPI;
+      return $CFG_GLPI['root_doc'] . '/plugins/sentinelone/front/threat.form.php';
+   }
+
+   public static function getFormURLWithID($id = 0, $full = true): string
+   {
+      return static::getFormURL($full) . '?id=' . (int)$id;
+   }
+
+   public static function getDefaultSearchRequest(): array
+   {
+      return [
+         'criteria' => [
+            [
+               'field'      => 7,
+               'searchtype' => 'morethan',
+               'value'      => date('Y-m-d', strtotime('-30 days')),
+            ],
+         ],
+         'sort' => 7,
+         'order' => 'DESC',
+      ];
+   }
+
    public function rawSearchOptions(): array
    {
       $tab = [];
@@ -88,6 +114,59 @@ class Threat extends \CommonDBTM
          'field'    => 'severity',
          'name'     => 'Severidade',
          'datatype' => 'string',
+      ];
+      $tab[] = [
+         'id'       => 11,
+         'table'    => self::getTable(),
+         'field'    => 'file_path',
+         'name'     => 'Caminho do arquivo',
+         'datatype' => 'string',
+      ];
+      $tab[] = [
+         'id'       => 12,
+         'table'    => self::getTable(),
+         'field'    => 'hash_sha1',
+         'name'     => 'Hash SHA1',
+         'datatype' => 'string',
+      ];
+      $tab[] = [
+         'id'       => 13,
+         'table'    => self::getTable(),
+         'field'    => 'hash_sha256',
+         'name'     => 'Hash SHA256',
+         'datatype' => 'string',
+      ];
+      $tab[] = [
+         'id'       => 14,
+         'table'    => self::getTable(),
+         'field'    => 'resolved_at',
+         'name'     => 'Resolvida em',
+         'datatype' => 'datetime',
+      ];
+      $tab[] = [
+         'id'       => 15,
+         'table'    => self::getTable(),
+         'field'    => 'sentinelone_agent_id',
+         'name'     => 'ID agente SentinelOne',
+         'datatype' => 'string',
+      ];
+      $tab[] = [
+         'id'       => 16,
+         'table'    => self::getTable(),
+         'field'    => 'entities_id',
+         'name'     => 'Entidade ID',
+         'datatype' => 'number',
+      ];
+
+      // Suprime a coluna de entidade (id=80) que o GLPI adiciona automaticamente
+      // para objetos entity-based — sem dados uteis na lista de ameacas.
+      $tab[] = [
+         'id'            => 80,
+         'table'         => 'glpi_entities',
+         'field'         => 'completename',
+         'name'          => 'Entidade',
+         'massiveaction' => false,
+         'datatype'      => 'dropdown',
       ];
 
       return $tab;
@@ -195,5 +274,65 @@ class Threat extends \CommonDBTM
    private static function h(string $value): string
    {
       return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+   }
+
+   public function getSpecificMassiveActions($checkitem = null): array
+   {
+      $actions = parent::getSpecificMassiveActions($checkitem);
+
+      if (Profile::hasSyncRight()) {
+         $sep = \MassiveAction::CLASS_ACTION_SEPARATOR;
+         $actions[self::class . $sep . 'open_tickets'] = __('Abrir tickets para selecionadas', 'sentinelone');
+         $actions[self::class . $sep . 'mark_resolved'] = __('Marcar como resolvidas (local)', 'sentinelone');
+      }
+
+      return $actions;
+   }
+
+   public static function processMassiveActionsForOneItemtype(\MassiveAction $ma, \CommonDBTM $item, array $ids): void
+   {
+      global $DB;
+
+      $action = $ma->getAction();
+
+      if ($action === 'open_tickets') {
+         $config = Config::getConfig();
+         $ok = 0;
+         $ko = 0;
+         foreach ($ids as $id) {
+            $row = null;
+            foreach ($DB->request(['FROM' => self::getTable(), 'WHERE' => ['id' => (int)$id], 'LIMIT' => 1]) as $r) {
+               $row = $r;
+            }
+            if ($row === null || (int)($row['tickets_id'] ?? 0) > 0) {
+               $ko++;
+               continue;
+            }
+            try {
+               $ticket = TicketManager::createForThreat($row, $config);
+               if ($ticket > 0) {
+                  $DB->update(self::getTable(), ['tickets_id' => $ticket, 'date_mod' => date('Y-m-d H:i:s')], ['id' => (int)$id]);
+                  $ok++;
+               } else {
+                  $ko++;
+               }
+            } catch (\Throwable) {
+               $ko++;
+            }
+         }
+         $ma->itemDone($item->getType(), $ids, $ko === 0 ? \MassiveAction::ACTION_OK : \MassiveAction::ACTION_KO);
+         return;
+      }
+
+      if ($action === 'mark_resolved') {
+         $now = date('Y-m-d H:i:s');
+         foreach ($ids as $id) {
+            $DB->update(self::getTable(), ['status' => 'resolved', 'resolved_at' => $now, 'date_mod' => $now], ['id' => (int)$id]);
+         }
+         $ma->itemDone($item->getType(), $ids, \MassiveAction::ACTION_OK);
+         return;
+      }
+
+      parent::processMassiveActionsForOneItemtype($ma, $item, $ids);
    }
 }

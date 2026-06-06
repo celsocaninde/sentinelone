@@ -25,8 +25,7 @@
 .sentinelone-config,
 .sentinelone-dashboard,
 .sentinelone-diagnostic {
-   max-width: 1280px;
-   margin: 0 auto;
+   width: 100%;
 }
 
 /* ---------- Brand mark / logo ---------- */
@@ -688,22 +687,26 @@
 /* ---------- Barra de sincronizacao ---------- */
 .sentinelone-dashboard__sync {
    display: flex;
-   justify-content: space-between;
-   gap: 1rem;
-   padding: 1rem;
+   flex-direction: column;
+   gap: .85rem;
+   padding: 1rem 1.15rem;
    margin-bottom: 1rem;
 }
 
 .sentinelone-dashboard__sync-meta {
    display: flex;
    flex-wrap: wrap;
-   gap: .65rem;
+   gap: .6rem;
 }
 
 .sentinelone-dashboard__sync-actions {
    display: flex;
    align-items: center;
-   gap: .55rem;
+   justify-content: flex-end;
+   gap: .5rem;
+   flex-wrap: wrap;
+   border-top: 1px solid var(--s1-border);
+   padding-top: .7rem;
 }
 
 .sentinelone-dashboard__sync-actions .btn {
@@ -712,13 +715,25 @@
    gap: .4rem;
 }
 
+.sentinelone-sync-label {
+   display: inline-flex;
+   align-items: center;
+   gap: .3rem;
+   font-size: .8rem;
+   font-weight: 700;
+   color: var(--s1-muted);
+   white-space: nowrap;
+   margin-right: .25rem;
+}
+
 .sentinelone-sync-chip {
    display: flex;
    flex-direction: column;
    align-items: flex-start;
-   gap: .2rem;
-   min-width: 180px;
-   padding: .7rem .85rem;
+   gap: .18rem;
+   flex: 1 0 160px;
+   max-width: 260px;
+   padding: .65rem .85rem;
    border-radius: 11px;
    background: var(--s1-grad-soft);
    border: 1px solid rgba(107, 44, 245, .18);
@@ -726,17 +741,19 @@
 
 .sentinelone-sync-chip span {
    color: var(--s1-muted);
-   font-size: .8rem;
+   font-size: .78rem;
+   white-space: nowrap;
 }
 
 .sentinelone-sync-chip strong {
-   font-size: .92rem;
+   font-size: .88rem;
+   white-space: nowrap;
 }
 
 /* ---------- Stats ---------- */
 .sentinelone-stats {
    display: grid;
-   grid-template-columns: repeat(6, minmax(0, 1fr));
+   grid-template-columns: repeat(4, minmax(0, 1fr));
    gap: .85rem;
    margin-bottom: 1rem;
 }
@@ -845,6 +862,20 @@
    gap: .75rem;
 }
 
+.sentinelone-agent-grid {
+   display: grid;
+   grid-template-columns: repeat(4, minmax(0, 1fr));
+   gap: .75rem;
+}
+
+@media (max-width: 1200px) {
+   .sentinelone-agent-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 860px) {
+   .sentinelone-agent-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 .sentinelone-agent {
    padding: .8rem;
    border: 1px solid var(--s1-border);
@@ -915,6 +946,11 @@
 .s1-badge--muted {
    color: #475569;
    background: #e9edf3;
+}
+
+.s1-badge--warning {
+   color: #7c4700;
+   background: #fff0cc;
 }
 
 /* ---------- Aba SentinelOne dentro do computador ---------- */
@@ -1060,7 +1096,10 @@
 
 /* ---------- Responsivo ---------- */
 @media (max-width: 1100px) {
-   .sentinelone-stats,
+   .sentinelone-stats {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+   }
+
    .sentinelone-diagnostic__stats {
       grid-template-columns: repeat(3, minmax(0, 1fr));
    }
@@ -1083,13 +1122,16 @@
    .s1-kv {
       grid-template-columns: 1fr;
    }
+
+   .sentinelone-stats {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+   }
 }
 
 @media (max-width: 760px) {
    .sentinelone-config__hero,
    .sentinelone-dashboard__hero,
    .sentinelone-diagnostic__hero,
-   .sentinelone-dashboard__sync,
    .sentinelone-panel__head,
    .sentinelone-diagnostic__panel-head,
    .sentinelone-config__actions {
@@ -1097,19 +1139,212 @@
       flex-direction: column;
    }
 
-   .sentinelone-dashboard__actions,
-   .sentinelone-dashboard__sync-actions {
+   .sentinelone-dashboard__actions {
       justify-content: stretch;
    }
 
-   .sentinelone-dashboard__actions .btn,
-   .sentinelone-dashboard__sync-actions .btn {
+   .sentinelone-dashboard__actions .btn {
       justify-content: center;
       width: 100%;
    }
 
+   .sentinelone-dashboard__sync-actions {
+      justify-content: flex-start;
+   }
+
    .sentinelone-stats,
    .sentinelone-diagnostic__stats {
-      grid-template-columns: 1fr;
+      grid-template-columns: 1fr 1fr;
    }
+}
+
+/* ---------- Activity feed ---------- */
+.s1-activity-feed {
+   list-style: none;
+   margin: 0;
+   padding: 0;
+   border-top: 1px solid var(--s1-border);
+}
+
+.s1-activity-feed__item {
+   display: flex;
+   align-items: flex-start;
+   gap: 10px;
+   padding: 10px 20px;
+   border-bottom: 1px solid var(--s1-border);
+   transition: background .15s;
+}
+
+.s1-activity-feed__item:last-child {
+   border-bottom: none;
+}
+
+.s1-activity-feed__item:hover {
+   background: var(--s1-grad-soft);
+}
+
+.s1-activity-feed__icon {
+   flex-shrink: 0;
+   margin-top: 2px;
+   font-size: 16px;
+}
+
+.s1-activity-feed__body {
+   display: flex;
+   flex-direction: column;
+   gap: 2px;
+   min-width: 0;
+}
+
+.s1-activity-feed__body strong {
+   font-size: 13px;
+   font-weight: 600;
+   color: var(--s1-ink-text);
+}
+
+.s1-activity-feed__desc {
+   font-size: 12px;
+   color: var(--s1-muted);
+   white-space: nowrap;
+   overflow: hidden;
+   text-overflow: ellipsis;
+   max-width: 480px;
+}
+
+.s1-activity-feed__time {
+   font-size: 11px;
+   color: var(--s1-muted);
+   margin-top: 1px;
+}
+
+/* ---------- Badge HIGH (severity) ---------- */
+.s1-badge--high {
+   color: #fff;
+   background: #e05a00;
+}
+
+/* ---------- Painel CVEs ---------- */
+.sentinelone-panel--cves .sentinelone-panel__head {
+   display: flex;
+   align-items: center;
+   gap: 8px;
+   padding: 10px 16px;
+   border-bottom: 1px solid var(--s1-border);
+   font-size: 13px;
+   font-weight: 600;
+}
+
+.sentinelone-panel--cves .sentinelone-panel__head h3 {
+   margin: 0;
+   font-size: 13px;
+   font-weight: 600;
+}
+
+.s1-cve-table {
+   width: 100%;
+   border-collapse: collapse;
+   font-size: 12px;
+}
+
+.s1-cve-table thead th {
+   background: var(--s1-surface);
+   padding: 7px 12px;
+   text-align: left;
+   font-size: 11px;
+   font-weight: 600;
+   text-transform: uppercase;
+   letter-spacing: .04em;
+   color: var(--s1-muted);
+   border-bottom: 1px solid var(--s1-border);
+}
+
+.s1-cve-table tbody tr:nth-child(even) {
+   background: #f9fafb;
+}
+
+.s1-cve-table tbody tr:hover {
+   background: #f0f4ff;
+}
+
+.s1-cve-table tbody td {
+   padding: 6px 12px;
+   border-bottom: 1px solid var(--s1-border);
+   vertical-align: middle;
+}
+
+.s1-cve-id {
+   font-family: monospace;
+   font-size: 11.5px;
+   font-weight: 600;
+   color: var(--s1-ink-text);
+}
+
+.s1-cve-link {
+   font-family: monospace;
+   font-size: 11.5px;
+   font-weight: 600;
+   color: var(--s1-accent);
+   text-decoration: none;
+}
+
+.s1-cve-link:hover {
+   text-decoration: underline;
+}
+
+/* ---------- Tabela dispositivos rogues ---------- */
+.s1-rogues-table {
+   width: 100%;
+   border-collapse: collapse;
+   font-size: 12px;
+}
+
+.s1-rogues-table thead th {
+   background: var(--s1-surface);
+   padding: 7px 12px;
+   text-align: left;
+   font-size: 11px;
+   font-weight: 600;
+   text-transform: uppercase;
+   letter-spacing: .04em;
+   color: var(--s1-muted);
+   border-bottom: 1px solid var(--s1-border);
+   white-space: nowrap;
+}
+
+.s1-rogues-table tbody tr:nth-child(even) {
+   background: #f9fafb;
+}
+
+.s1-rogues-table tbody tr:hover {
+   background: #f0f4ff;
+}
+
+.s1-rogues-table tbody td {
+   padding: 6px 12px;
+   border-bottom: 1px solid var(--s1-border);
+   vertical-align: middle;
+}
+
+.s1-rogues-host {
+   font-weight: 600;
+   color: var(--s1-ink-text);
+}
+
+.s1-ip, .s1-mac {
+   font-family: monospace;
+   font-size: 11.5px;
+   background: #f1f5f9;
+   padding: 1px 5px;
+   border-radius: 3px;
+}
+
+.s1-ports {
+   font-family: monospace;
+   font-size: 11px;
+   color: var(--s1-muted);
+}
+
+.s1-muted {
+   color: var(--s1-muted);
+   font-size: 11.5px;
 }

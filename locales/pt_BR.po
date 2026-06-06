@@ -1,0 +1,1011 @@
+# GLPI SentinelOne Plugin pt_BR
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: pt_BR\n"
+
+msgid "1 - Muito baixa"
+msgstr ""
+
+msgid "2 - Baixa"
+msgstr ""
+
+msgid "3 - Media"
+msgstr ""
+
+msgid "4 - Alta"
+msgstr ""
+
+msgid "5 - Muito alta"
+msgstr ""
+
+msgid "6 - Critica"
+msgstr ""
+
+msgid "Abaixo desta versao o agente e considerado desatualizado. Vazio = nao checa."
+msgstr ""
+
+msgid "Abre a ameaca direto na console. Vazio = sem link."
+msgstr ""
+
+msgid "Abre o endpoint direto na console. Vazio = sem link."
+msgstr ""
+
+msgid "Abre um ticket por agente com problema (offline/infectado/desatualizado)."
+msgstr ""
+
+msgid "Abrir endpoint"
+msgstr ""
+
+msgid "Acao"
+msgstr ""
+
+msgid "A criacao de tickets esta ligada, mas nenhuma regra de status ou classificacao foi definida &mdash; nenhum ticket sera aberto ate preencher pelo menos um dos campos abaixo."
+msgstr ""
+
+msgid "Adware"
+msgstr ""
+
+msgid "Agentes"
+msgstr ""
+
+msgid "Agentes, ameacas, tickets e sincronizacoes em um painel operacional."
+msgstr ""
+
+msgid "Agente SentinelOne"
+msgstr ""
+
+msgid "Agentes online"
+msgstr ""
+
+msgid "Agentes sem vinculo"
+msgstr ""
+
+msgid "Agentes sem vinculo GLPI e computadores sem agente SentinelOne."
+msgstr ""
+
+msgid "Agentes SentinelOne"
+msgstr ""
+
+msgid "Agentes SentinelOne sem computador associado"
+msgstr ""
+
+msgid "agentes vinculados"
+msgstr ""
+
+msgid "agentes vinculados a um computador"
+msgstr ""
+
+msgid "Aguardam inventario GLPI"
+msgstr ""
+
+msgid "Aguardando regras"
+msgstr ""
+
+msgid "Aguardando regras."
+msgstr ""
+
+msgid "Ameaca"
+msgstr ""
+
+msgid "Ameacas"
+msgstr ""
+
+msgid "Ameacas detectadas (ultimos 7 dias)"
+msgstr ""
+
+msgid "Ameacas recentes"
+msgstr ""
+
+msgid "A partir de quantas horas sem contato o agente vira um problema."
+msgstr ""
+
+msgid "ApiToken atende a maioria dos tenants SentinelOne."
+msgstr ""
+
+msgid "ApiToken - recomendado"
+msgstr ""
+
+msgid "API v2.0 - legado"
+msgstr ""
+
+msgid "API v2.1 - recomendado"
+msgstr ""
+
+msgid "Associados ao GLPI"
+msgstr ""
+
+msgid "Ativo (active)"
+msgstr ""
+
+msgid "Ativos"
+msgstr ""
+
+msgid "Atualizar"
+msgstr ""
+
+msgid "Autenticacao"
+msgstr ""
+
+msgid "Automacao"
+msgstr ""
+
+msgid "Backdoor"
+msgstr ""
+
+msgid "Bloqueado (blocked)"
+msgstr ""
+
+msgid "Candidatos GLPI"
+msgstr ""
+
+msgid "Categoria GLPI do ticket"
+msgstr ""
+
+msgid "Cobertura de Agentes"
+msgstr ""
+
+msgid "Cobertura GLPI"
+msgstr ""
+
+msgid "com conexao recente"
+msgstr ""
+
+msgid "Computador"
+msgstr ""
+
+msgid "Computadores desprotegidos"
+msgstr ""
+
+msgid "Computadores GLPI"
+msgstr ""
+
+msgid "Computadores GLPI desprotegidos"
+msgstr ""
+
+msgid "computadores no GLPI"
+msgstr ""
+
+msgid "Computadores sem agente"
+msgstr ""
+
+msgid "Conexao"
+msgstr ""
+
+msgid "Conexao OK"
+msgstr ""
+
+msgid "Configuracao"
+msgstr ""
+
+msgid "Configurada"
+msgstr ""
+
+msgid "Console"
+msgstr ""
+
+msgid "Console, endpoint da API, autenticacao e links da console."
+msgstr ""
+
+msgid "Console, token, sincronizacao e automacoes do plugin."
+msgstr ""
+
+msgid "Criar tickets de saude do agente"
+msgstr ""
+
+msgid "Criar tickets para ameacas"
+msgstr ""
+
+msgid "Criar tickets somente para classificacoes"
+msgstr ""
+
+msgid "Criar tickets somente para status"
+msgstr ""
+
+msgid "Dashboard"
+msgstr ""
+
+msgid "Data"
+msgstr ""
+
+msgid "de"
+msgstr ""
+
+msgid "Deep link de ameaca (opcional, use {threatId})"
+msgstr ""
+
+msgid "Deep link de endpoint (opcional, use {agentId})"
+msgstr ""
+
+msgid "Deixe em branco para manter o token atual."
+msgstr ""
+
+msgid "Desativados"
+msgstr ""
+
+msgid "desatualizada, min: %s"
+msgstr ""
+
+msgid "Destinatarios dos alertas. Requer e-mail/SMTP configurado no GLPI."
+msgstr ""
+
+msgid "Detectada em"
+msgstr ""
+
+msgid "Diagnostico"
+msgstr ""
+
+msgid "Downloader"
+msgstr ""
+
+msgid "%d possivel(is) computador(es) GLPI encontrado(s). Rode nova sincronizacao de agentes para tentar vincular."
+msgstr ""
+
+msgid "Dropper"
+msgstr ""
+
+msgid "E-mails para alertas (separados por virgula)"
+msgstr ""
+
+msgid "Endereco da sua console, sem barra no final."
+msgstr ""
+
+msgid "Endpoint"
+msgstr ""
+
+msgid "Endpoint da API"
+msgstr ""
+
+msgid "Endpoints em atencao"
+msgstr ""
+
+msgid "Endpoint sem nome"
+msgstr ""
+
+msgid "Entidade"
+msgstr ""
+
+msgid "Entidade padrao GLPI"
+msgstr ""
+
+msgid "Enviado junto com a abertura do ticket de saude do agente."
+msgstr ""
+
+msgid "Envia quando uma nova ameaca critica e sincronizada."
+msgstr ""
+
+msgid "Enviar e-mail em ameaca critica"
+msgstr ""
+
+msgid "Enviar e-mail em problema de agente"
+msgstr ""
+
+msgid "Escolha a versao da API. Use \"Personalizado\" so para tenants com caminho diferente."
+msgstr ""
+
+msgid "Exploit"
+msgstr ""
+
+msgid "Falha na conexao"
+msgstr ""
+
+msgid "Fechar tickets quando ameaca for resolvida"
+msgstr ""
+
+msgid "Filtro de agentes"
+msgstr ""
+
+msgid "Filtro de ameacas"
+msgstr ""
+
+msgid "Generic"
+msgstr ""
+
+msgid "Grava o SentinelOne na aba Antivirus de cada computador vinculado."
+msgstr ""
+
+msgid "Grupo"
+msgstr ""
+
+msgid "Hacktool"
+msgstr ""
+
+msgid "Horas offline para abrir ticket"
+msgstr ""
+
+msgid "Identificadores"
+msgstr ""
+
+msgid "ID SentinelOne"
+msgstr ""
+
+msgid "Impacto"
+msgstr ""
+
+msgid "infectado"
+msgstr ""
+
+msgid "Infectado"
+msgstr ""
+
+msgid "Infectados"
+msgstr ""
+
+msgid "Informe a console"
+msgstr ""
+
+msgid "Infostealer"
+msgstr ""
+
+msgid "Integracao ativa"
+msgstr ""
+
+msgid "Integracao da API"
+msgstr ""
+
+msgid "Interruptor geral dos tickets de ameaca. Precisa de pelo menos uma regra abaixo."
+msgstr ""
+
+msgid "Interruptor geral: sincronizacoes e automacoes so rodam com isto em Sim."
+msgstr ""
+
+msgid "Inventario GLPI insuficiente: ha poucos computadores ativos para casar com os agentes SentinelOne."
+msgstr ""
+
+msgid "IP"
+msgstr ""
+
+msgid "Itens"
+msgstr ""
+
+msgid "Itens por pagina"
+msgstr ""
+
+msgid "Limite"
+msgstr ""
+
+msgid "Limite de paginas por execucao (protege contra cargas enormes)."
+msgstr ""
+
+msgid "limpo"
+msgstr ""
+
+msgid "MAC"
+msgstr ""
+
+msgid "Malware"
+msgstr ""
+
+msgid "Maximo de paginas"
+msgstr ""
+
+msgid "Mensagem"
+msgstr ""
+
+msgid "Mostrando ate %d agentes sem vinculo. O plugin tenta casar por serial, UUID, nome completo, nome curto e MAC durante a sincronizacao."
+msgstr ""
+
+msgid "Mostrando ate %d computadores ativos sem agente SentinelOne, nas entidades visiveis para voce."
+msgstr ""
+
+msgid "Nao"
+msgstr ""
+
+msgid "Nao mitigado (not_mitigated)"
+msgstr ""
+
+msgid "Nao mitigado (unmitigated)"
+msgstr ""
+
+msgid "Nenhuma ameaca sincronizada ainda."
+msgstr ""
+
+msgid "Nenhum agente sem vinculo encontrado."
+msgstr ""
+
+msgid "Nenhum agente SentinelOne sincronizado ainda. Sincronize os agentes antes de usar este relatorio."
+msgstr ""
+
+msgid "Nenhum agente SentinelOne vinculado a este computador."
+msgstr ""
+
+msgid "Nenhum computador sem agente encontrado."
+msgstr ""
+
+msgid "Nenhum endpoint critico encontrado."
+msgstr ""
+
+msgid "Nenhum log registrado ainda."
+msgstr ""
+
+msgid "Nenhum match exato por nome, serial, UUID ou MAC."
+msgstr ""
+
+msgid "Nome curto"
+msgstr ""
+
+msgid "Nome exato"
+msgstr ""
+
+msgid "Nunca executado"
+msgstr ""
+
+msgid "offline"
+msgstr ""
+
+msgid "Offline"
+msgstr ""
+
+msgid "online"
+msgstr ""
+
+msgid "Online"
+msgstr ""
+
+msgid "Opcional, no formato query string da API SentinelOne."
+msgstr ""
+
+msgid "Operacao SentinelOne"
+msgstr ""
+
+msgid "O que o plugin faz automaticamente."
+msgstr ""
+
+msgid "Pendente"
+msgstr ""
+
+msgid "Pendente (pending)"
+msgstr ""
+
+msgid "Pendentes de atendimento"
+msgstr ""
+
+msgid "Personalizado..."
+msgstr ""
+
+msgid "Phishing"
+msgstr ""
+
+msgid "Prioridade"
+msgstr ""
+
+msgid "Prioridade alta"
+msgstr ""
+
+msgid "PUA (potencialmente indesejado)"
+msgstr ""
+
+msgid "Quando o SentinelOne marcar a ameaca como mitigada/resolvida, o ticket correspondente e marcado como Solucionado com uma nota de resolucao."
+msgstr ""
+
+msgid "Quanto buscar por execucao e onde gravar."
+msgstr ""
+
+msgid "Quantos itens o plugin pede por pagina a API."
+msgstr ""
+
+msgid "Ransomware"
+msgstr ""
+
+msgid "Registrar como antivirus do computador"
+msgstr ""
+
+msgid "Regras de ticket"
+msgstr ""
+
+msgid "Rode a sincronizacao de agentes e ameacas e acompanhe por aqui."
+msgstr ""
+
+msgid "Rootkit"
+msgstr ""
+
+msgid "Salvar"
+msgstr ""
+
+msgid "Saude de agentes e alertas"
+msgstr ""
+
+msgid "Sem agente"
+msgstr ""
+
+msgid "Sem agente S1"
+msgstr ""
+
+msgid "Sem categoria"
+msgstr ""
+
+msgid "Sem conexao recente"
+msgstr ""
+
+msgid "sem status"
+msgstr ""
+
+msgid "Sem ticket"
+msgstr ""
+
+msgid "Sem usuario (padrao do GLPI)"
+msgstr ""
+
+msgid "sem vinculo"
+msgstr ""
+
+msgid "Sem vinculo"
+msgstr ""
+
+msgid "Serial"
+msgstr ""
+
+msgid "Severidade"
+msgstr ""
+
+msgid "Sim"
+msgstr ""
+
+msgid "Sincronizacao"
+msgstr ""
+
+msgid "Sincronize"
+msgstr ""
+
+msgid "Sistema operacional"
+msgstr ""
+
+msgid "Site"
+msgstr ""
+
+msgid "Spyware"
+msgstr ""
+
+msgid "Status"
+msgstr ""
+
+msgid "Status E classificacao precisam casar; campo vazio = todos; ameacas resolvidas sao ignoradas."
+msgstr ""
+
+msgid "Suspeito (suspicious)"
+msgstr ""
+
+msgid "Tempo maximo de espera por resposta da API."
+msgstr ""
+
+msgid "Testar conexao"
+msgstr ""
+
+msgid "Teste a conexao"
+msgstr ""
+
+msgid "Ticket"
+msgstr ""
+
+msgid "Tickets automaticos"
+msgstr ""
+
+msgid "Tickets por problema de agente e e-mails de alerta."
+msgstr ""
+
+msgid "Timeout HTTP em segundos"
+msgstr ""
+
+msgid "Todos os tickets abrem com este usuario como solicitante/autor. Crie um usuario dedicado (ex.: \"integracao\") para identificar os chamados do plugin."
+msgstr ""
+
+msgid "Token cadastrado"
+msgstr ""
+
+msgid "Token da API"
+msgstr ""
+
+msgid "Token nao cadastrado"
+msgstr ""
+
+msgid "Total sincronizado"
+msgstr ""
+
+msgid "Trojan"
+msgstr ""
+
+msgid "Tudo"
+msgstr ""
+
+msgid "Ultima atualizacao"
+msgstr ""
+
+msgid "Ultima sync de agentes"
+msgstr ""
+
+msgid "Ultima sync de ameacas"
+msgstr ""
+
+msgid "Ultimo contato"
+msgstr ""
+
+msgid "Ultimos logs"
+msgstr ""
+
+msgid "Unknown"
+msgstr ""
+
+msgid "Urgencia"
+msgstr ""
+
+msgid "URL da console"
+msgstr ""
+
+msgid "URL e token da API SentinelOne na tela de Configuracao."
+msgstr ""
+
+msgid "Usada para gravar agentes, ameacas e tickets criados pela integracao."
+msgstr ""
+
+msgid "Use \"Testar conexao\" para validar o endpoint e o token."
+msgstr ""
+
+msgid "Usuario solicitante (integracao)"
+msgstr ""
+
+msgid "UUID"
+msgstr ""
+
+msgid "Vazio = qualquer classificacao. Combina em E (AND) com o filtro de status."
+msgstr ""
+
+msgid "Vazio = qualquer status (OU entre os escolhidos). Ameacas resolvidas/mitigadas sao sempre ignoradas."
+msgstr ""
+
+msgid "Ver agentes"
+msgstr ""
+
+msgid "versao desatualizada"
+msgstr ""
+
+msgid "Versao do agente"
+msgstr ""
+
+msgid "Versao minima configurada: %s"
+msgstr ""
+
+msgid "Versao minima do agente (opcional)"
+msgstr ""
+
+msgid "Ver todas"
+msgstr ""
+
+msgid "Vinculados"
+msgstr ""
+
+msgid "Vinculados ao GLPI"
+msgstr ""
+
+msgid "Virus"
+msgstr ""
+
+msgid "Worm"
+msgstr ""
+
+msgid "agentes"
+msgstr ""
+
+msgid "ameacas"
+msgstr ""
+
+msgid "Sync atrasada."
+msgstr ""
+
+msgid "A sincronizacao de %s nao rodou nas ultimas 2 horas. Verifique se o cron do GLPI esta ativo."
+msgstr ""
+
+msgid "Atividades SentinelOne"
+msgstr ""
+
+msgid "Atividade SentinelOne"
+msgstr ""
+
+msgid "Agente reiniciado"
+msgstr ""
+
+msgid "Agente instalado"
+msgstr ""
+
+msgid "Agente desinstalado"
+msgstr ""
+
+msgid "Agente atualizado"
+msgstr ""
+
+msgid "Agente reativado"
+msgstr ""
+
+msgid "Politica aplicada"
+msgstr ""
+
+msgid "Ameaca detectada"
+msgstr ""
+
+msgid "Ameaca mitigada"
+msgstr ""
+
+msgid "Ameaca resolvida"
+msgstr ""
+
+msgid "Ameaca marcada como benigna"
+msgstr ""
+
+msgid "Ameaca marcada como falso positivo"
+msgstr ""
+
+msgid "Scan concluido"
+msgstr ""
+
+msgid "Scan iniciado"
+msgstr ""
+
+msgid "Endpoint colocado em quarentena de rede"
+msgstr ""
+
+msgid "Quarentena de rede removida"
+msgstr ""
+
+msgid "Quarentena aplicada"
+msgstr ""
+
+msgid "Quarentena removida"
+msgstr ""
+
+msgid "Evento"
+msgstr ""
+
+msgid "Atividades recentes (SentinelOne)"
+msgstr ""
+
+msgid "Nenhuma atividade sincronizada para este endpoint. Rode a sync de atividades para atualizar."
+msgstr ""
+
+msgid "Detalhes do endpoint"
+msgstr ""
+
+msgid "Politica"
+msgstr ""
+
+msgid "Conta"
+msgstr ""
+
+msgid "Tipo de maquina"
+msgstr ""
+
+msgid "Dominio"
+msgstr ""
+
+msgid "Status de rede"
+msgstr ""
+
+msgid "Status de scan"
+msgstr ""
+
+msgid "IP externo"
+msgstr ""
+
+msgid "Nucleos de CPU"
+msgstr ""
+
+msgid "Memoria (MB)"
+msgstr ""
+
+msgid "Reboot necessario"
+msgstr ""
+
+msgid "Tipo de OS"
+msgstr ""
+
+msgid "Mapa site SentinelOne -> entidade GLPI"
+msgstr ""
+
+msgid "Mapeamento de sites SentinelOne para entidades GLPI. Um por linha no formato NomeSite=id_entidade. Agentes desse site serao gravados na entidade correspondente."
+msgstr ""
+
+msgid "Sincronizar feed de atividades dos agentes"
+msgstr ""
+
+msgid "Busca as ultimas atividades (eventos) dos agentes na console SentinelOne e exibe na aba do computador. Aumenta o volume de chamadas a API."
+msgstr ""
+
+msgid "Atividades"
+msgstr ""
+
+msgid "Ultima sync de atividades"
+msgstr ""
+
+msgid "atividades"
+msgstr ""
+
+msgid "Grupo responsavel (atribuicao)"
+msgstr ""
+
+msgid "Grupo GLPI atribuido como responsavel em todos os tickets criados pelo plugin. Deixe em branco para nao atribuir."
+msgstr ""
+
+msgid "Sem grupo (padrao do GLPI)"
+msgstr ""
+
+msgid "Sincronizar inventario de software dos endpoints"
+msgstr ""
+
+msgid "Busca os aplicativos instalados de cada endpoint via API e grava no inventario de software do GLPI. Recomendado para cobrir estacoes que o Nessus nao alcanca. Opt-in: aumenta chamadas a API."
+msgstr ""
+
+msgid "Agentes por execucao de software sync"
+msgstr ""
+
+msgid "Quantos agentes sao processados por execucao da cron de software (para controlar o volume de chamadas a API)."
+msgstr ""
+
+msgid "Ultima sync de software"
+msgstr ""
+
+msgid "software"
+msgstr ""
+
+msgid "Top classificacoes de ameacas"
+msgstr ""
+
+msgid "Historico de Sincronizacoes"
+msgstr ""
+
+msgid "Registro completo de todas as execucoes das tarefas agendadas do plugin."
+msgstr ""
+
+msgid "Filtros"
+msgstr ""
+
+msgid "Todas as acoes"
+msgstr ""
+
+msgid "Todos os status"
+msgstr ""
+
+msgid "Filtrar"
+msgstr ""
+
+msgid "Limpar"
+msgstr ""
+
+msgid "registros"
+msgstr ""
+
+msgid "Nenhum log encontrado para os filtros selecionados."
+msgstr ""
+
+msgid "Re-vincular todos"
+msgstr ""
+
+msgid "Tenta vincular todos os agentes sem link usando serial, UUID, nome e MAC"
+msgstr ""
+
+msgid "Vincular manualmente"
+msgstr ""
+
+msgid "Vincular ao computador GLPI com esse ID"
+msgstr ""
+
+msgid "Ver historico"
+msgstr ""
+
+msgid "Caminho do arquivo"
+msgstr ""
+
+msgid "Hash SHA1"
+msgstr ""
+
+msgid "Hash SHA256"
+msgstr ""
+
+msgid "Resolvida em"
+msgstr ""
+
+msgid "ID agente SentinelOne"
+msgstr ""
+
+msgid "Entidade ID"
+msgstr ""
+
+msgid "CVEs SentinelOne"
+msgstr "CVEs SentinelOne"
+
+msgid "CVE SentinelOne"
+msgstr "CVE SentinelOne"
+
+msgid "CVEs detectados"
+msgstr "CVEs detectados"
+
+msgid "sem CVEs"
+msgstr "sem CVEs"
+
+msgid "%d CVE"
+msgstr "%d CVE"
+
+msgid "%d CVEs"
+msgstr "%d CVEs"
+
+msgid "Nenhum CVE encontrado para este endpoint."
+msgstr "Nenhum CVE encontrado para este endpoint."
+
+msgid "CVE"
+msgstr "CVE"
+
+msgid "CVSS"
+msgstr "CVSS"
+
+msgid "Aplicacao"
+msgstr "Aplicacao"
+
+msgid "Versao"
+msgstr "Versao"
+
+msgid "Publicado"
+msgstr "Publicado"
+
+msgid "Sincronizar CVEs dos endpoints"
+msgstr "Sincronizar CVEs dos endpoints"
+
+msgid "Busca CVEs detectados em cada endpoint via API SentinelOne e exibe na aba do computador no GLPI. Opt-in: aumenta chamadas a API. Requer plano com Vulnerability Management habilitado."
+msgstr "Busca CVEs detectados em cada endpoint via API SentinelOne e exibe na aba do computador no GLPI. Opt-in: aumenta chamadas a API. Requer plano com Vulnerability Management habilitado."
+
+msgid "Agentes por execucao de CVE sync"
+msgstr "Agentes por execucao de CVE sync"
+
+msgid "Quantos agentes sao processados por execucao da cron de CVEs."
+msgstr "Quantos agentes sao processados por execucao da cron de CVEs."
+
+msgid "Dispositivos rogues SentinelOne"
+msgstr "Dispositivos rogues SentinelOne"
+
+msgid "Dispositivo rogue SentinelOne"
+msgstr "Dispositivo rogue SentinelOne"
+
+msgid "Dispositivos rogues — SentinelOne"
+msgstr "Dispositivos rogues — SentinelOne"
+
+msgid "Dispositivos rogues detectados pelo Ranger"
+msgstr "Dispositivos rogues detectados pelo Ranger"
+
+msgid "Dispositivos rogues (Ranger)"
+msgstr "Dispositivos rogues (Ranger)"
+
+msgid "%d dispositivo"
+msgstr "%d dispositivo"
+
+msgid "%d dispositivos"
+msgstr "%d dispositivos"
+
+msgid "Nenhum dispositivo rogue encontrado. Verifique se o Ranger esta habilitado na console SentinelOne e se a sincronizacao ja foi executada."
+msgstr "Nenhum dispositivo rogue encontrado. Verifique se o Ranger esta habilitado na console SentinelOne e se a sincronizacao ja foi executada."
+
+msgid "Hostname"
+msgstr "Hostname"
+
+msgid "Fabricante"
+msgstr "Fabricante"
+
+msgid "Agente detector"
+msgstr "Agente detector"
+
+msgid "Portas"
+msgstr "Portas"
+
+msgid "Ultimo avistamento"
+msgstr "Ultimo avistamento"
+
+msgid "Classificacao"
+msgstr "Classificacao"
+
+msgid "Exibindo %d de %d dispositivos"
+msgstr "Exibindo %d de %d dispositivos"
+
+msgid "Rogues"
+msgstr "Rogues"
+
+msgid "Sincronizar dispositivos rogues (Ranger)"
+msgstr "Sincronizar dispositivos rogues (Ranger)"
+
+msgid "Busca endpoints detectados na rede pelo Ranger SentinelOne que nao possuem agente instalado. Opt-in: requer licenca Ranger."
+msgstr "Busca endpoints detectados na rede pelo Ranger SentinelOne que nao possuem agente instalado. Opt-in: requer licenca Ranger."

@@ -27,6 +27,7 @@ class TicketManager
       }
 
       self::applyRequester($input, $config);
+      self::applyAssignGroup($input, $config);
 
       $ticketId = $ticket->add($input);
 
@@ -71,6 +72,7 @@ class TicketManager
       }
 
       self::applyRequester($input, $config);
+      self::applyAssignGroup($input, $config);
 
       $ticketId = $ticket->add($input);
 
@@ -84,6 +86,110 @@ class TicketManager
       }
 
       return (int)$ticketId;
+   }
+
+   public static function closeForThreat(int $ticketId, array $threat): void
+   {
+      $status    = trim((string)($threat['status'] ?? ''));
+      $resolvedAt = trim((string)($threat['resolved_at'] ?? ''));
+      $verdict   = trim((string)($threat['analyst_verdict'] ?? ''));
+      $threatName = trim((string)($threat['threat_name'] ?? 'ameaca'));
+
+      $details = [];
+      if ($status !== '') {
+         $details[] = 'Status: ' . $status;
+      }
+      if ($verdict !== '') {
+         $details[] = 'Veredito: ' . $verdict;
+      }
+      if ($resolvedAt !== '') {
+         $details[] = 'Resolvida em: ' . $resolvedAt;
+      }
+
+      $detailsLine = $details !== [] ? implode(' &middot; ', array_map([self::class, 'esc'], $details)) : '';
+
+      $body = self::footerNote(
+         "\u{2705} Ameaca <strong>" . self::esc($threatName) . "</strong> foi resolvida/mitigada no SentinelOne."
+         . ($detailsLine !== '' ? '<br>' . $detailsLine : '')
+         . "<br>\u{1F916} Ticket fechado automaticamente pelo plugin SentinelOne."
+      );
+
+      $content = self::htmlCard(
+         "\u{1F6E1}\u{FE0F} SentinelOne",
+         'Ameaca resolvida',
+         $threatName,
+         '#2b7a0b',
+         $body
+      );
+
+      if (class_exists(\ITILFollowup::class)) {
+         try {
+            $followup = new \ITILFollowup();
+            $followup->add([
+               'items_id'        => $ticketId,
+               'itemtype'        => 'Ticket',
+               'content'         => $content,
+               'is_private'      => 0,
+               'requesttypes_id' => 0,
+            ]);
+         } catch (\Throwable $error) {
+            // followup e opcional; nao deve impedir o fechamento
+         }
+      }
+
+      try {
+         $ticket = new \Ticket();
+         $solvedStatus = defined('Ticket::SOLVED') ? \Ticket::SOLVED : 5;
+         $ticket->update([
+            'id'     => $ticketId,
+            'status' => $solvedStatus,
+         ]);
+      } catch (\Throwable $error) {
+         Log::record('syncthreats', 'error', 'Falha ao fechar ticket #' . $ticketId . ': ' . $error->getMessage());
+      }
+   }
+
+   public static function addNoteAsFollowup(int $ticketId, array $note): void
+   {
+      if (!class_exists(\ITILFollowup::class)) {
+         return;
+      }
+
+      $text = trim((string)($note['text'] ?? $note['body'] ?? ''));
+      if ($text === '') {
+         return;
+      }
+
+      $createdBy = trim((string)($note['creator']['fullName'] ?? $note['creator']['full_name'] ?? $note['createdByUser'] ?? ''));
+      $createdAt = trim((string)($note['createdAt'] ?? $note['created_at'] ?? ''));
+
+      $meta = '';
+      if ($createdBy !== '') {
+         $meta .= "<span style='color:#6b7280;font-size:12px'>\u{1F464} " . self::esc($createdBy);
+         if ($createdAt !== '') {
+            $meta .= " &middot; " . self::esc($createdAt);
+         }
+         $meta .= "</span><br>";
+      }
+
+      $content = "<div style='border-left:3px solid #6b2cf5;padding:8px 12px;margin:4px 0'>"
+         . $meta
+         . nl2br(self::esc($text))
+         . "</div>"
+         . "<p style='font-size:11px;color:#9ca3af;margin-top:6px'>\u{1F4AC} Nota sincronizada da console SentinelOne.</p>";
+
+      try {
+         $followup = new \ITILFollowup();
+         $followup->add([
+            'items_id'        => $ticketId,
+            'itemtype'        => 'Ticket',
+            'content'         => $content,
+            'is_private'      => 0,
+            'requesttypes_id' => 0,
+         ]);
+      } catch (\Throwable $error) {
+         // followup nao critico; nao deve interromper o fluxo
+      }
    }
 
    private static function linkComputer(int $ticketId, int $computerId): void
@@ -238,6 +344,16 @@ class TicketManager
       }
 
       return substr($value, 0, $length - 3) . '...';
+   }
+
+   private static function applyAssignGroup(array &$input, array $config): void
+   {
+      $groupId = (int)($config['ticket_group_id'] ?? 0);
+      if ($groupId <= 0) {
+         return;
+      }
+
+      $input['_groups_id_assign'] = $groupId;
    }
 
    /**

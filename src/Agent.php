@@ -8,12 +8,24 @@ class Agent extends \CommonDBTM
 
    public static function getTypeName($nb = 0): string
    {
-      return $nb > 1 ? 'Agentes SentinelOne' : 'Agente SentinelOne';
+      return $nb > 1 ? __('Agentes SentinelOne', 'sentinelone') : __('Agente SentinelOne', 'sentinelone');
    }
 
    public static function getMenuName(): string
    {
       return 'SentinelOne';
+   }
+
+   public static function getFormURL($full = true): string
+   {
+      global $CFG_GLPI;
+      $url = $CFG_GLPI['root_doc'] . '/plugins/sentinelone/front/agent.form.php';
+      return $full ? $url : $url;
+   }
+
+   public static function getFormURLWithID($id = 0, $full = true): string
+   {
+      return static::getFormURL($full) . '?id=' . (int)$id;
    }
 
    public static function getMenuContent(): array
@@ -26,6 +38,7 @@ class Agent extends \CommonDBTM
          'icon'  => 'ti ti-shield',
          'links' => [
             'search' => $CFG_GLPI['root_doc'] . '/plugins/sentinelone/front/agent.php',
+            __('Rogues', 'sentinelone') => $CFG_GLPI['root_doc'] . '/plugins/sentinelone/front/rogues.php',
             'config' => $CFG_GLPI['root_doc'] . '/plugins/sentinelone/front/config.form.php',
          ],
       ];
@@ -43,43 +56,78 @@ class Agent extends \CommonDBTM
          'id'       => 1,
          'table'    => self::getTable(),
          'field'    => 'computer_name',
-         'name'     => 'Computador',
+         'name'     => __('Computador', 'sentinelone'),
          'datatype' => 'string',
       ];
       $tab[] = [
          'id'       => 2,
          'table'    => self::getTable(),
          'field'    => 'sentinelone_id',
-         'name'     => 'ID SentinelOne',
+         'name'     => __('ID SentinelOne', 'sentinelone'),
          'datatype' => 'string',
       ];
       $tab[] = [
          'id'       => 3,
          'table'    => self::getTable(),
          'field'    => 'agent_version',
-         'name'     => 'Versao do agente',
+         'name'     => __('Versao do agente', 'sentinelone'),
          'datatype' => 'string',
       ];
       $tab[] = [
          'id'       => 4,
          'table'    => self::getTable(),
          'field'    => 'is_online',
-         'name'     => 'Online',
+         'name'     => __('Online', 'sentinelone'),
          'datatype' => 'bool',
       ];
       $tab[] = [
          'id'       => 5,
          'table'    => self::getTable(),
          'field'    => 'is_infected',
-         'name'     => 'Infectado',
+         'name'     => __('Infectado', 'sentinelone'),
          'datatype' => 'bool',
       ];
       $tab[] = [
          'id'       => 6,
          'table'    => self::getTable(),
          'field'    => 'last_active_at',
-         'name'     => 'Ultimo contato',
+         'name'     => __('Ultimo contato', 'sentinelone'),
          'datatype' => 'datetime',
+      ];
+      $tab[] = [
+         'id'       => 7,
+         'table'    => self::getTable(),
+         'field'    => 'is_network_quarantine',
+         'name'     => __('Em quarentena', 'sentinelone'),
+         'datatype' => 'bool',
+      ];
+      $tab[] = [
+         'id'       => 8,
+         'table'    => self::getTable(),
+         'field'    => 'group_name',
+         'name'     => __('Grupo', 'sentinelone'),
+         'datatype' => 'string',
+      ];
+      $tab[] = [
+         'id'       => 9,
+         'table'    => self::getTable(),
+         'field'    => 'site_name',
+         'name'     => __('Site', 'sentinelone'),
+         'datatype' => 'string',
+      ];
+      $tab[] = [
+         'id'       => 10,
+         'table'    => self::getTable(),
+         'field'    => 'os_name',
+         'name'     => __('Sistema operacional', 'sentinelone'),
+         'datatype' => 'string',
+      ];
+      $tab[] = [
+         'id'       => 11,
+         'table'    => self::getTable(),
+         'field'    => 'ip',
+         'name'     => __('IP', 'sentinelone'),
+         'datatype' => 'string',
       ];
 
       return $tab;
@@ -117,7 +165,7 @@ class Agent extends \CommonDBTM
       }
 
       if ($agent === null) {
-         echo "<div class='alert alert-info'>Nenhum agente SentinelOne vinculado a este computador.</div>";
+         echo "<div class='alert alert-info'>" . __('Nenhum agente SentinelOne vinculado a este computador.', 'sentinelone') . "</div>";
          return;
       }
 
@@ -125,10 +173,13 @@ class Agent extends \CommonDBTM
       $consoleUrl = trim((string)($config['base_url'] ?? ''));
       $endpointUrl = Config::consoleEndpointUrl($config, (string)$agent['sentinelone_id']);
       $linkUrl = $endpointUrl !== '' ? $endpointUrl : $consoleUrl;
-      $linkLabel = $endpointUrl !== '' ? 'Abrir endpoint' : 'Console';
+      $linkLabel = $endpointUrl !== '' ? __('Abrir endpoint', 'sentinelone') : __('Console', 'sentinelone');
       $online = (int)$agent['is_online'] === 1;
       $infected = (int)$agent['is_infected'] === 1;
       $title = trim((string)$agent['computer_name']) !== '' ? (string)$agent['computer_name'] : 'Endpoint';
+      $agentVersion = trim((string)($agent['agent_version'] ?? ''));
+      $minVersion = trim((string)($config['min_agent_version'] ?? ''));
+      $versionOutdated = $minVersion !== '' && $agentVersion !== '' && version_compare($agentVersion, $minVersion, '<');
 
       echo "<div class='s1-asset-card'>";
       echo "<div class='s1-asset-card__head'>";
@@ -139,32 +190,49 @@ class Agent extends \CommonDBTM
       echo "</div>";
       echo "<div class='s1-asset-card__spacer'></div>";
       echo $infected
-         ? "<span class='s1-badge s1-badge--critical'>infectado</span>"
-         : "<span class='s1-badge s1-badge--ok'>limpo</span>";
+         ? "<span class='s1-badge s1-badge--critical'>" . __('infectado', 'sentinelone') . "</span>"
+         : "<span class='s1-badge s1-badge--ok'>" . __('limpo', 'sentinelone') . "</span>";
       echo $online
-         ? "<span class='s1-badge s1-badge--ok'>online</span>"
-         : "<span class='s1-badge s1-badge--muted'>offline</span>";
+         ? "<span class='s1-badge s1-badge--ok'>" . __('online', 'sentinelone') . "</span>"
+         : "<span class='s1-badge s1-badge--muted'>" . __('offline', 'sentinelone') . "</span>";
+      if ($versionOutdated) {
+         echo "<span class='s1-badge s1-badge--warning' title='" . sprintf(__('Versao minima configurada: %s', 'sentinelone'), self::h($minVersion)) . "'>\u{26A0} " . __('versao desatualizada', 'sentinelone') . "</span>";
+      }
       if ($linkUrl !== '') {
          echo "<a class='btn btn-sm btn-light' href='" . self::h($linkUrl) . "' target='_blank' rel='noopener'><span class='ti ti-external-link'></span>" . self::h($linkLabel) . "</a>";
       }
       echo "</div>";
       echo "<div class='s1-asset-card__body'>";
       echo "<div class='s1-kv'>";
-      self::kv('ID SentinelOne', (string)$agent['sentinelone_id']);
-      self::kv('Serial', (string)$agent['serial']);
-      self::kv('UUID', (string)$agent['uuid']);
-      self::kv('Sistema operacional', (string)$agent['os_name']);
-      self::kv('Versao do agente', (string)$agent['agent_version']);
-      self::kv('Site', (string)$agent['site_name']);
-      self::kv('Grupo', (string)$agent['group_name']);
-      self::kv('IP', (string)($agent['ip'] ?? ''));
-      self::kv('MAC', (string)($agent['mac'] ?? ''));
-      self::kv('Ultimo contato', (string)$agent['last_active_at']);
+      self::kv(__('ID SentinelOne', 'sentinelone'), (string)$agent['sentinelone_id']);
+      self::kv(__('Serial', 'sentinelone'), (string)$agent['serial']);
+      self::kv(__('UUID', 'sentinelone'), (string)$agent['uuid']);
+      self::kv(__('Sistema operacional', 'sentinelone'), (string)$agent['os_name']);
+      self::kv(__('Versao do agente', 'sentinelone'), $agentVersion . ($versionOutdated ? ' ⚠ (' . sprintf(__('desatualizada, min: %s', 'sentinelone'), $minVersion) . ')' : ''));
+      self::kv(__('Site', 'sentinelone'), (string)$agent['site_name']);
+      self::kv(__('Grupo', 'sentinelone'), (string)$agent['group_name']);
+      self::kv(__('IP', 'sentinelone'), (string)($agent['ip'] ?? ''));
+      self::kv(__('MAC', 'sentinelone'), (string)($agent['mac'] ?? ''));
+      self::kv(__('Ultimo contato', 'sentinelone'), (string)$agent['last_active_at']);
+      $extra = self::extractExtraFields((string)($agent['raw_json'] ?? ''));
+      if ($extra !== []) {
+         echo "<div class='sentinelone-panel sentinelone-panel--extra' style='margin-top:12px;padding:0 20px 12px'>";
+         echo "<div class='sentinelone-panel__head' style='padding-left:0;padding-right:0'><h3 style='font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280'>" . __('Detalhes do endpoint', 'sentinelone') . "</h3></div>";
+         echo "<div class='s1-kv'>";
+         foreach ($extra as $label => $value) {
+            self::kv($label, $value);
+         }
+         echo "</div>";
+         echo "</div>";
+      }
+
       echo "</div>";
       echo "</div>";
       echo "</div>";
 
       Threat::showForAgent((string)$agent['sentinelone_id']);
+      self::showActivityFeed((string)$agent['sentinelone_id']);
+      Cve::showForAgent((int)$agent['id']);
    }
 
    public static function getUnlinkedDiagnostics(int $limit = 80): array
@@ -289,7 +357,7 @@ class Agent extends \CommonDBTM
       $mac = trim((string)($agent['mac'] ?? ''));
 
       $checks[] = [
-         'label'      => 'Nome exato',
+         'label'      => __('Nome exato', 'sentinelone'),
          'value'      => $name,
          'candidates' => self::findComputerCandidatesByField('name', $name),
       ];
@@ -297,26 +365,26 @@ class Agent extends \CommonDBTM
       $shortName = $name !== '' ? preg_replace('/\..*$/', '', $name) : '';
       if (is_string($shortName) && $shortName !== '' && $shortName !== $name) {
          $checks[] = [
-            'label'      => 'Nome curto',
+            'label'      => __('Nome curto', 'sentinelone'),
             'value'      => $shortName,
             'candidates' => self::findComputerCandidatesByField('name', $shortName),
          ];
       }
 
       $checks[] = [
-         'label'      => 'Serial',
+         'label'      => __('Serial', 'sentinelone'),
          'value'      => $serial,
          'candidates' => self::findComputerCandidatesByField('serial', $serial),
       ];
 
       $checks[] = [
-         'label'      => 'UUID',
+         'label'      => __('UUID', 'sentinelone'),
          'value'      => $uuid,
          'candidates' => self::findComputerCandidatesByField('uuid', $uuid),
       ];
 
       $checks[] = [
-         'label'      => 'MAC',
+         'label'      => __('MAC', 'sentinelone'),
          'value'      => $mac,
          'candidates' => self::findComputerCandidatesByMac($mac),
       ];
@@ -337,20 +405,20 @@ class Agent extends \CommonDBTM
       if ($candidateIds !== []) {
          return [
             'status'  => 'candidate',
-            'message' => count($candidateIds) . ' possivel(is) computador(es) GLPI encontrado(s). Rode nova sincronizacao de agentes para tentar vincular.',
+            'message' => sprintf(__('%d possivel(is) computador(es) GLPI encontrado(s). Rode nova sincronizacao de agentes para tentar vincular.', 'sentinelone'), count($candidateIds)),
          ];
       }
 
       if (self::countRows('glpi_computers', ['is_deleted' => 0]) <= 1) {
          return [
             'status'  => 'inventory',
-            'message' => 'Inventario GLPI insuficiente: ha poucos computadores ativos para casar com os agentes SentinelOne.',
+            'message' => __('Inventario GLPI insuficiente: ha poucos computadores ativos para casar com os agentes SentinelOne.', 'sentinelone'),
          ];
       }
 
       return [
          'status'  => 'missing',
-         'message' => 'Nenhum match exato por nome, serial, UUID ou MAC.',
+         'message' => __('Nenhum match exato por nome, serial, UUID ou MAC.', 'sentinelone'),
       ];
    }
 
@@ -453,6 +521,133 @@ class Agent extends \CommonDBTM
       global $DB;
 
       return method_exists($DB, 'fieldExists') && $DB->fieldExists($table, $field);
+   }
+
+   private static function showActivityFeed(string $sentineloneAgentId): void
+   {
+      $config = Config::getConfig();
+
+      if ((string)($config['sync_activities'] ?? '0') !== '1') {
+         return;
+      }
+
+      $activities = Activity::getForAgent($sentineloneAgentId, 12);
+
+      echo "<div class='sentinelone-panel' style='margin-top:16px'>";
+      echo "<div class='sentinelone-panel__head'><h3>" . __('Atividades recentes (SentinelOne)', 'sentinelone') . "</h3></div>";
+      echo "<div class='sentinelone-panel__body' style='padding:0'>";
+
+      if ($activities === []) {
+         echo "<div class='sentinelone-empty'>" . __('Nenhuma atividade sincronizada para este endpoint. Rode a sync de atividades para atualizar.', 'sentinelone') . "</div>";
+      } else {
+         echo "<ul class='s1-activity-feed'>";
+         foreach ($activities as $act) {
+            $typeCode = trim((string)($act['activity_type'] ?? ''));
+            $label = Activity::labelForType($typeCode);
+            $icon = Activity::iconForType($typeCode);
+            $desc = trim((string)($act['description'] ?? ''));
+            $date = trim((string)($act['occurred_at'] ?? ''));
+            echo "<li class='s1-activity-feed__item'>";
+            echo "<span class='ti " . self::h($icon) . " s1-activity-feed__icon'></span>";
+            echo "<div class='s1-activity-feed__body'>";
+            echo "<strong>" . self::h($label) . "</strong>";
+            if ($desc !== '' && $desc !== $label) {
+               echo "<span class='s1-activity-feed__desc'>" . self::h($desc) . "</span>";
+            }
+            if ($date !== '') {
+               echo "<time class='s1-activity-feed__time'>" . self::h($date) . "</time>";
+            }
+            echo "</div>";
+            echo "</li>";
+         }
+         echo "</ul>";
+      }
+
+      echo "</div>";
+      echo "</div>";
+   }
+
+   private static function extractExtraFields(string $rawJson): array
+   {
+      if ($rawJson === '') {
+         return [];
+      }
+
+      $raw = json_decode($rawJson, true);
+      if (!is_array($raw)) {
+         return [];
+      }
+
+      $fields = [];
+
+      $policyName = self::deepGet($raw, ['policy', 'name']) ?? $raw['policyName'] ?? null;
+      if ($policyName !== null && trim((string)$policyName) !== '') {
+         $fields[__('Politica', 'sentinelone')] = (string)$policyName;
+      }
+
+      $accountName = $raw['accountName'] ?? null;
+      if ($accountName !== null && trim((string)$accountName) !== '') {
+         $fields[__('Conta', 'sentinelone')] = (string)$accountName;
+      }
+
+      $machineType = $raw['machineType'] ?? null;
+      if ($machineType !== null && trim((string)$machineType) !== '') {
+         $fields[__('Tipo de maquina', 'sentinelone')] = (string)$machineType;
+      }
+
+      $domain = $raw['domain'] ?? null;
+      if ($domain !== null && trim((string)$domain) !== '') {
+         $fields[__('Dominio', 'sentinelone')] = (string)$domain;
+      }
+
+      $networkStatus = $raw['networkStatus'] ?? null;
+      if ($networkStatus !== null && trim((string)$networkStatus) !== '') {
+         $fields[__('Status de rede', 'sentinelone')] = (string)$networkStatus;
+      }
+
+      $scanStatus = $raw['scanStatus'] ?? null;
+      if ($scanStatus !== null && trim((string)$scanStatus) !== '') {
+         $fields[__('Status de scan', 'sentinelone')] = (string)$scanStatus;
+      }
+
+      $externalIp = $raw['externalIp'] ?? null;
+      if ($externalIp !== null && trim((string)$externalIp) !== '') {
+         $fields[__('IP externo', 'sentinelone')] = (string)$externalIp;
+      }
+
+      $cpuCount = $raw['cpuCount'] ?? null;
+      if ($cpuCount !== null && (int)$cpuCount > 0) {
+         $fields[__('Nucleos de CPU', 'sentinelone')] = (string)(int)$cpuCount;
+      }
+
+      $totalMemory = $raw['totalMemory'] ?? null;
+      if ($totalMemory !== null && (int)$totalMemory > 0) {
+         $fields[__('Memoria (MB)', 'sentinelone')] = number_format((int)$totalMemory, 0, ',', '.');
+      }
+
+      $rebootRequired = $raw['threatRebootRequired'] ?? null;
+      if ($rebootRequired !== null && (bool)$rebootRequired) {
+         $fields[__('Reboot necessario', 'sentinelone')] = '⚠ ' . __('Sim', 'sentinelone');
+      }
+
+      $osType = $raw['osType'] ?? null;
+      if ($osType !== null && trim((string)$osType) !== '') {
+         $fields[__('Tipo de OS', 'sentinelone')] = (string)$osType;
+      }
+
+      return $fields;
+   }
+
+   private static function deepGet(array $array, array $keys)
+   {
+      $current = $array;
+      foreach ($keys as $key) {
+         if (!is_array($current) || !array_key_exists($key, $current)) {
+            return null;
+         }
+         $current = $current[$key];
+      }
+      return $current !== null && $current !== '' ? $current : null;
    }
 
    private static function kv(string $label, string $value): void

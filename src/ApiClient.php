@@ -52,6 +52,113 @@ class ApiClient
       return $this->collectPaginated('/threats', $params, $maxPages);
    }
 
+   public function getThreatNotes(string $threatId): array
+   {
+      $response = $this->request('GET', '/threats/' . rawurlencode($threatId) . '/notes');
+      $data = $response['data'] ?? [];
+      return is_array($data) ? $data : [];
+   }
+
+   public function getActivities(array $params = [], int $maxPages = 3): array
+   {
+      return $this->collectPaginated('/activities', $params, $maxPages);
+   }
+
+   public function getAgentApplications(string $agentId): array
+   {
+      return $this->collectPaginated('/agents/' . rawurlencode($agentId) . '/applications', ['limit' => 200], 5);
+   }
+
+   public function getAgentCves(string $agentId): array
+   {
+      return $this->collectPaginated('/threats/cve', ['agentIds' => $agentId, 'limit' => 100], 10);
+   }
+
+   public function getRogueDevices(array $params = [], int $maxPages = 20): array
+   {
+      return $this->collectPaginated('/ranger/rogues/endpoints', array_merge(['limit' => 100], $params), $maxPages);
+   }
+
+   // ---- Threat actions ----
+
+   public function mitigateThreat(string $threatId, string $action = 'kill_and_quarantine'): array
+   {
+      return $this->request('POST', '/threats/actions/mitigate', [], [
+         'data'   => ['action' => $action],
+         'filter' => ['ids' => [$threatId]],
+      ]);
+   }
+
+   public function rollbackThreat(string $threatId): array
+   {
+      return $this->request('POST', '/threats/actions/rollback-remediation', [], [
+         'data'   => (object)[],
+         'filter' => ['ids' => [$threatId]],
+      ]);
+   }
+
+   public function setThreatVerdict(string $threatId, string $verdict): array
+   {
+      return $this->request('POST', '/threats/analyst-verdict', [], [
+         'data'   => ['analystVerdict' => $verdict],
+         'filter' => ['ids' => [$threatId]],
+      ]);
+   }
+
+   // ---- Agent remote actions ----
+
+   public function scanAgent(string $sentineloneId): array
+   {
+      return $this->request('POST', '/agents/actions/initiateScan', [], [
+         'data'   => (object)[],
+         'filter' => ['ids' => [$sentineloneId]],
+      ]);
+   }
+
+   public function updateAgent(string $sentineloneId): array
+   {
+      return $this->request('POST', '/agents/actions/update', [], [
+         'data'   => ['packageType' => 'AgentAndRanger'],
+         'filter' => ['ids' => [$sentineloneId]],
+      ]);
+   }
+
+   public function restartAgent(string $sentineloneId): array
+   {
+      return $this->request('POST', '/agents/actions/restart-services', [], [
+         'data'   => (object)[],
+         'filter' => ['ids' => [$sentineloneId]],
+      ]);
+   }
+
+   public function getGroups(array $params = [], int $maxPages = 5): array
+   {
+      return $this->collectPaginated('/groups', array_merge(['limit' => 100], $params), $maxPages);
+   }
+
+   public function getGroupPolicy(string $groupId): array
+   {
+      $response = $this->request('GET', '/policy', ['groupIds' => $groupId]);
+      $data = $response['data'] ?? [];
+      return is_array($data) ? $data : [];
+   }
+
+   public function quarantineAgent(string $sentineloneId): array
+   {
+      return $this->request('POST', '/agents/actions/disconnect', [], [
+         'data'   => (object)[],
+         'filter' => ['ids' => [$sentineloneId]],
+      ]);
+   }
+
+   public function unquarantineAgent(string $sentineloneId): array
+   {
+      return $this->request('POST', '/agents/actions/connect', [], [
+         'data'   => (object)[],
+         'filter' => ['ids' => [$sentineloneId]],
+      ]);
+   }
+
    public function request(string $method, string $path, array $query = [], ?array $body = null): array
    {
       $url = $this->buildUrl($path, $query);

@@ -47,6 +47,8 @@ class Config extends \CommonGLPI
          'threat_filter_query'  => '',
          'entity_id'            => '0',
          'create_tickets'       => '0',
+         'auto_close_tickets'   => '1',
+         'sync_threat_notes'    => '0',
          'ticket_status_filter' => '',
          'ticket_classification_filter' => '',
          'ticket_category_id'   => '0',
@@ -54,7 +56,6 @@ class Config extends \CommonGLPI
          'ticket_urgency'       => '4',
          'ticket_impact'        => '4',
          'ticket_priority'      => '4',
-         'allow_remote_actions' => '0',
          'write_antivirus'      => '1',
          'create_agent_tickets' => '0',
          'ticket_offline_hours' => '24',
@@ -62,6 +63,16 @@ class Config extends \CommonGLPI
          'alert_emails'         => '',
          'alert_on_critical_threat' => '0',
          'alert_on_agent_issue' => '0',
+         'sync_activities'      => '0',
+         'site_entity_map'      => '',
+         'ticket_group_id'      => '0',
+         'sync_software'        => '0',
+         'sync_software_limit'  => '30',
+         'sync_cves'            => '0',
+         'sync_cves_limit'      => '30',
+         'sync_rogues'          => '0',
+         'sync_incremental'     => '0',
+         'report_recipients'    => '',
       ];
    }
 
@@ -71,8 +82,8 @@ class Config extends \CommonGLPI
    public static function basePathPresets(): array
    {
       return [
-         '/web/api/v2.1' => 'API v2.1 - recomendado',
-         '/web/api/v2.0' => 'API v2.0 - legado',
+         '/web/api/v2.1' => __('API v2.1 - recomendado', 'sentinelone'),
+         '/web/api/v2.0' => __('API v2.0 - legado', 'sentinelone'),
       ];
    }
 
@@ -82,7 +93,7 @@ class Config extends \CommonGLPI
    public static function authSchemePresets(): array
    {
       return [
-         'ApiToken' => 'ApiToken - recomendado',
+         'ApiToken' => __('ApiToken - recomendado', 'sentinelone'),
          'Bearer'   => 'Bearer',
          'Token'    => 'Token',
       ];
@@ -193,6 +204,8 @@ class Config extends \CommonGLPI
       $config['threat_filter_query'] = self::cleanQueryString($input['threat_filter_query'] ?? '');
       $config['entity_id'] = (string)max(0, (int)($input['entity_id'] ?? 0));
       $config['create_tickets'] = self::boolInput($input, 'create_tickets');
+      $config['auto_close_tickets'] = self::boolInput($input, 'auto_close_tickets');
+      $config['sync_threat_notes'] = self::boolInput($input, 'sync_threat_notes');
       $config['ticket_status_filter'] = self::cleanList($input['ticket_status_filter'] ?? '');
       $config['ticket_classification_filter'] = self::cleanList($input['ticket_classification_filter'] ?? '');
       $config['ticket_category_id'] = (string)max(0, (int)($input['ticket_category_id'] ?? 0));
@@ -200,7 +213,6 @@ class Config extends \CommonGLPI
       $config['ticket_urgency'] = (string)max(1, min(5, (int)($input['ticket_urgency'] ?? 4)));
       $config['ticket_impact'] = (string)max(1, min(5, (int)($input['ticket_impact'] ?? 4)));
       $config['ticket_priority'] = (string)max(1, min(6, (int)($input['ticket_priority'] ?? 4)));
-      $config['allow_remote_actions'] = self::boolInput($input, 'allow_remote_actions');
       $config['write_antivirus'] = self::boolInput($input, 'write_antivirus');
       $config['create_agent_tickets'] = self::boolInput($input, 'create_agent_tickets');
       $config['ticket_offline_hours'] = (string)max(1, min(8760, (int)($input['ticket_offline_hours'] ?? 24)));
@@ -208,6 +220,16 @@ class Config extends \CommonGLPI
       $config['alert_emails'] = self::cleanEmailList($input['alert_emails'] ?? '');
       $config['alert_on_critical_threat'] = self::boolInput($input, 'alert_on_critical_threat');
       $config['alert_on_agent_issue'] = self::boolInput($input, 'alert_on_agent_issue');
+      $config['sync_activities'] = self::boolInput($input, 'sync_activities');
+      $config['site_entity_map'] = self::cleanSiteEntityMap($input['site_entity_map'] ?? '');
+      $config['ticket_group_id'] = (string)max(0, (int)($input['ticket_group_id'] ?? 0));
+      $config['sync_software'] = self::boolInput($input, 'sync_software');
+      $config['sync_software_limit'] = (string)max(1, min(200, (int)($input['sync_software_limit'] ?? 30)));
+      $config['sync_cves'] = self::boolInput($input, 'sync_cves');
+      $config['sync_cves_limit'] = (string)max(1, min(200, (int)($input['sync_cves_limit'] ?? 30)));
+      $config['sync_rogues'] = self::boolInput($input, 'sync_rogues');
+      $config['sync_incremental'] = self::boolInput($input, 'sync_incremental');
+      $config['report_recipients'] = self::cleanEmailList($input['report_recipients'] ?? '');
 
       $token = trim((string)($input['api_token'] ?? ''));
       if ($token !== '' || !$keepExistingToken) {
@@ -248,7 +270,7 @@ class Config extends \CommonGLPI
    {
       $config = self::getConfig();
       $formUrl = self::getPluginFormUrl();
-      $tokenStatus = trim((string)$config['api_token']) !== '' ? 'Token cadastrado' : 'Token nao cadastrado';
+      $tokenStatus = trim((string)$config['api_token']) !== '' ? __('Token cadastrado', 'sentinelone') : __('Token nao cadastrado', 'sentinelone');
       $canUpdate = Profile::hasConfigUpdateRight();
       $configured = self::isConfigured($config);
       $flash = self::pullConnectionTestFlash();
@@ -260,13 +282,13 @@ class Config extends \CommonGLPI
       echo "<span class='s1-logo'><span class='ti ti-shield-half-filled'></span></span>";
       echo "<div>";
       echo "<div class='sentinelone-config__eyebrow'>SentinelOne</div>";
-      echo "<h2>Integracao da API</h2>";
-      echo "<p>Console, token, sincronizacao e automacoes do plugin.</p>";
+      echo "<h2>" . __('Integracao da API', 'sentinelone') . "</h2>";
+      echo "<p>" . __('Console, token, sincronizacao e automacoes do plugin.', 'sentinelone') . "</p>";
       echo "</div>";
       echo "</div>";
       echo "<div class='sentinelone-config__status " . ($configured ? 'is-ok' : 'is-warn') . "'>";
       echo "<span class='ti " . ($configured ? 'ti-circle-check' : 'ti-alert-triangle') . "'></span>";
-      echo $configured ? 'Configurada' : 'Pendente';
+      echo $configured ? __('Configurada', 'sentinelone') : __('Pendente', 'sentinelone');
       echo "</div>";
       echo "</div>";
 
@@ -279,76 +301,105 @@ class Config extends \CommonGLPI
       echo "<div class='sentinelone-config__grid'>";
 
       echo "<section class='sentinelone-panel sentinelone-panel--wide'>";
-      self::panelHead('Conexao', 'Console, endpoint da API, autenticacao e links da console.', 'ti-plug-connected', "<span class='sentinelone-token-state'>" . self::h($tokenStatus) . "</span>");
+      self::panelHead(__('Conexao', 'sentinelone'), __('Console, endpoint da API, autenticacao e links da console.', 'sentinelone'), 'ti-plug-connected', "<span class='sentinelone-token-state'>" . self::h($tokenStatus) . "</span>");
       echo "<div class='sentinelone-panel__body sentinelone-fields'>";
-      self::renderYesNo('enabled', 'Integracao ativa', (string)$config['enabled'] === '1', $canUpdate, 'Interruptor geral: sincronizacoes e automacoes so rodam com isto em Sim.');
-      self::renderText('base_url', 'URL da console', (string)$config['base_url'], 'https://sua-console.sentinelone.net', $canUpdate, false, 'Endereco da sua console, sem barra no final.');
-      self::renderPreset('base_path', 'Endpoint da API', self::basePathPresets(), (string)$config['base_path'], 'Escolha a versao da API. Use "Personalizado" so para tenants com caminho diferente.', $canUpdate, '/web/api/v2.1');
-      self::renderPreset('auth_scheme', 'Autenticacao', self::authSchemePresets(), (string)$config['auth_scheme'], 'ApiToken atende a maioria dos tenants SentinelOne.', $canUpdate, 'ApiToken');
-      self::renderPassword('api_token', 'Token da API', $tokenStatus, $canUpdate);
-      self::renderNumber('timeout', 'Timeout HTTP em segundos', (int)$config['timeout'], 5, 120, $canUpdate, 'Tempo maximo de espera por resposta da API.');
-      self::renderText('console_threat_path', 'Deep link de ameaca (opcional, use {threatId})', (string)$config['console_threat_path'], '/incidents/threats/{threatId}/overview', $canUpdate, true, 'Abre a ameaca direto na console. Vazio = sem link.');
-      self::renderText('console_endpoint_path', 'Deep link de endpoint (opcional, use {agentId})', (string)$config['console_endpoint_path'], '/inventory/devices/{agentId}', $canUpdate, true, 'Abre o endpoint direto na console. Vazio = sem link.');
+      self::renderYesNo('enabled', __('Integracao ativa', 'sentinelone'), (string)$config['enabled'] === '1', $canUpdate, __('Interruptor geral: sincronizacoes e automacoes so rodam com isto em Sim.', 'sentinelone'));
+      self::renderText('base_url', __('URL da console', 'sentinelone'), (string)$config['base_url'], 'https://sua-console.sentinelone.net', $canUpdate, false, __('Endereco da sua console, sem barra no final.', 'sentinelone'));
+      self::renderPreset('base_path', __('Endpoint da API', 'sentinelone'), self::basePathPresets(), (string)$config['base_path'], __('Escolha a versao da API. Use "Personalizado" so para tenants com caminho diferente.', 'sentinelone'), $canUpdate, '/web/api/v2.1');
+      self::renderPreset('auth_scheme', __('Autenticacao', 'sentinelone'), self::authSchemePresets(), (string)$config['auth_scheme'], __('ApiToken atende a maioria dos tenants SentinelOne.', 'sentinelone'), $canUpdate, 'ApiToken');
+      self::renderPassword('api_token', __('Token da API', 'sentinelone'), $tokenStatus, $canUpdate);
+      self::renderNumber('timeout', __('Timeout HTTP em segundos', 'sentinelone'), (int)$config['timeout'], 5, 120, $canUpdate, __('Tempo maximo de espera por resposta da API.', 'sentinelone'));
+      self::renderText('console_threat_path', __('Deep link de ameaca (opcional, use {threatId})', 'sentinelone'), (string)$config['console_threat_path'], '/incidents/threats/{threatId}/overview', $canUpdate, true, __('Abre a ameaca direto na console. Vazio = sem link.', 'sentinelone'));
+      self::renderText('console_endpoint_path', __('Deep link de endpoint (opcional, use {agentId})', 'sentinelone'), (string)$config['console_endpoint_path'], '/inventory/devices/{agentId}', $canUpdate, true, __('Abre o endpoint direto na console. Vazio = sem link.', 'sentinelone'));
       echo "</div>";
       echo "</section>";
 
       echo "<section class='sentinelone-panel'>";
-      self::panelHead('Sincronizacao', 'Quanto buscar por execucao e onde gravar.', 'ti-refresh');
+      self::panelHead(__('Sincronizacao', 'sentinelone'), __('Quanto buscar por execucao e onde gravar.', 'sentinelone'), 'ti-refresh');
       echo "<div class='sentinelone-panel__body sentinelone-fields'>";
-      self::renderNumber('sync_limit', 'Itens por pagina', (int)$config['sync_limit'], 1, 1000, $canUpdate, 'Quantos itens o plugin pede por pagina a API.');
-      self::renderNumber('max_pages', 'Maximo de paginas', (int)$config['max_pages'], 1, 500, $canUpdate, 'Limite de paginas por execucao (protege contra cargas enormes).');
-      self::renderEntityDropdown('entity_id', 'Entidade padrao GLPI', (int)$config['entity_id'], $canUpdate);
-      self::renderText('agent_filter_query', 'Filtro de agentes', (string)$config['agent_filter_query'], 'isActive=true', $canUpdate, true, 'Opcional, no formato query string da API SentinelOne.');
-      self::renderText('threat_filter_query', 'Filtro de ameacas', (string)$config['threat_filter_query'], 'mitigationStatuses=unmitigated', $canUpdate, true, 'Opcional, no formato query string da API SentinelOne.');
+      self::renderNumber('sync_limit', __('Itens por pagina', 'sentinelone'), (int)$config['sync_limit'], 1, 1000, $canUpdate, __('Quantos itens o plugin pede por pagina a API.', 'sentinelone'));
+      self::renderNumber('max_pages', __('Maximo de paginas', 'sentinelone'), (int)$config['max_pages'], 1, 500, $canUpdate, __('Limite de paginas por execucao (protege contra cargas enormes).', 'sentinelone'));
+      self::renderEntityDropdown('entity_id', __('Entidade padrao GLPI', 'sentinelone'), (int)$config['entity_id'], $canUpdate);
+      self::renderText('agent_filter_query', __('Filtro de agentes', 'sentinelone'), (string)$config['agent_filter_query'], 'isActive=true', $canUpdate, true, __('Opcional, no formato query string da API SentinelOne.', 'sentinelone'));
+      self::renderText('threat_filter_query', __('Filtro de ameacas', 'sentinelone'), (string)$config['threat_filter_query'], 'mitigationStatuses=unmitigated', $canUpdate, true, __('Opcional, no formato query string da API SentinelOne.', 'sentinelone'));
+      self::renderTextarea('site_entity_map', __('Mapa site SentinelOne → entidade GLPI', 'sentinelone'), (string)($config['site_entity_map'] ?? ''), "Site Principal=1\nFilial SP=2", $canUpdate, __('Mapeamento de sites SentinelOne para entidades GLPI. Um por linha no formato NomeSite=id_entidade. Agentes desse site serao gravados na entidade correspondente.', 'sentinelone'));
       echo "</div>";
       echo "</section>";
 
       echo "<section class='sentinelone-panel'>";
-      self::panelHead('Automacao', 'O que o plugin faz automaticamente.', 'ti-robot');
+      self::panelHead(__('Automacao', 'sentinelone'), __('O que o plugin faz automaticamente.', 'sentinelone'), 'ti-robot');
       echo "<div class='sentinelone-panel__body sentinelone-fields'>";
-      self::renderYesNo('create_tickets', 'Criar tickets para ameacas', (string)$config['create_tickets'] === '1', $canUpdate, 'Interruptor geral dos tickets de ameaca. Precisa de pelo menos uma regra abaixo.');
-      self::renderYesNo('write_antivirus', 'Registrar como antivirus do computador', (string)$config['write_antivirus'] === '1', $canUpdate, 'Grava o SentinelOne na aba Antivirus de cada computador vinculado.');
-      self::renderYesNo('allow_remote_actions', 'Permitir acoes remotas', (string)$config['allow_remote_actions'] === '1', $canUpdate, 'Reservado para acoes remotas (isolar/scan). Ainda nao executa nada.');
+      self::renderYesNo('create_tickets', __('Criar tickets para ameacas', 'sentinelone'), (string)$config['create_tickets'] === '1', $canUpdate, __('Interruptor geral dos tickets de ameaca. Precisa de pelo menos uma regra abaixo.', 'sentinelone'));
+      self::renderYesNo('auto_close_tickets', __('Fechar tickets quando ameaca for resolvida', 'sentinelone'), (string)($config['auto_close_tickets'] ?? '1') === '1', $canUpdate, __('Quando o SentinelOne marcar a ameaca como mitigada/resolvida, o ticket correspondente e marcado como Solucionado com uma nota de resolucao.', 'sentinelone'));
+      self::renderYesNo('sync_threat_notes', __('Sincronizar notas da console como comentarios no ticket', 'sentinelone'), (string)($config['sync_threat_notes'] ?? '0') === '1', $canUpdate, __('Para cada ameaca com ticket aberto, busca as notas da console SentinelOne e adiciona como acompanhamentos no GLPI. Aumenta o volume de chamadas a API.', 'sentinelone'));
+      self::renderYesNo('write_antivirus', __('Registrar como antivirus do computador', 'sentinelone'), (string)$config['write_antivirus'] === '1', $canUpdate, __('Grava o SentinelOne na aba Antivirus de cada computador vinculado.', 'sentinelone'));
+      self::renderYesNo('sync_activities', __('Sincronizar feed de atividades dos agentes', 'sentinelone'), (string)($config['sync_activities'] ?? '0') === '1', $canUpdate, __('Busca as ultimas atividades (eventos) dos agentes na console SentinelOne e exibe na aba do computador. Aumenta o volume de chamadas a API.', 'sentinelone'));
+      self::renderYesNo('sync_software', __('Sincronizar inventario de software dos endpoints', 'sentinelone'), (string)($config['sync_software'] ?? '0') === '1', $canUpdate, __('Busca os aplicativos instalados de cada endpoint via API e grava no inventario de software do GLPI. Recomendado para cobrir estacoes que o Nessus nao alcanca. Opt-in: aumenta chamadas a API.', 'sentinelone'));
+      self::renderNumber('sync_software_limit', __('Agentes por execucao de software sync', 'sentinelone'), (int)($config['sync_software_limit'] ?? 30), 1, 200, $canUpdate, __('Quantos agentes sao processados por execucao da cron de software (para controlar o volume de chamadas a API).', 'sentinelone'));
+      self::renderYesNo('sync_cves', __('Sincronizar CVEs dos endpoints', 'sentinelone'), (string)($config['sync_cves'] ?? '0') === '1', $canUpdate, __('Busca CVEs detectados em cada endpoint via API SentinelOne e exibe na aba do computador no GLPI. Opt-in: aumenta chamadas a API. Requer plano com Vulnerability Management habilitado.', 'sentinelone'));
+      self::renderNumber('sync_cves_limit', __('Agentes por execucao de CVE sync', 'sentinelone'), (int)($config['sync_cves_limit'] ?? 30), 1, 200, $canUpdate, __('Quantos agentes sao processados por execucao da cron de CVEs.', 'sentinelone'));
+      self::renderYesNo('sync_rogues', __('Sincronizar dispositivos rogues (Ranger)', 'sentinelone'), (string)($config['sync_rogues'] ?? '0') === '1', $canUpdate, __('Busca endpoints detectados na rede pelo Ranger SentinelOne que nao possuem agente instalado. Opt-in: requer licenca Ranger.', 'sentinelone'));
+      self::renderYesNo('sync_incremental', __('Sync incremental (somente atualizacoes)', 'sentinelone'), (string)($config['sync_incremental'] ?? '0') === '1', $canUpdate, __('Quando ativo, as syncs de agentes e ameacas passam updatedAt__gt para buscar apenas o que mudou desde a ultima execucao. Reduz drasticamente o tempo de cron e o volume de chamadas a API. A primeira sync apos ativar sera completa.', 'sentinelone'));
       echo "</div>";
       echo "</section>";
 
       echo "<section class='sentinelone-panel sentinelone-panel--wide'>";
-      self::panelHead('Regras de ticket', 'Status E classificacao precisam casar; campo vazio = todos; ameacas resolvidas sao ignoradas.', 'ti-ticket');
+      self::panelHead(__('Relatorio semanal', 'sentinelone'), __('E-mail de resumo executivo enviado automaticamente toda semana.', 'sentinelone'), 'ti-report');
+      echo "<div class='sentinelone-panel__body sentinelone-fields'>";
+      self::renderText('report_recipients', __('Destinatarios do relatorio (e-mails separados por virgula)', 'sentinelone'), (string)($config['report_recipients'] ?? ''), 'operador@empresa.com,gestor@empresa.com', $canUpdate, true, __('O relatorio semanal sera enviado a esses enderecos pelo cron reportweekly. Deixe vazio para desativar.', 'sentinelone'));
+      echo "</div>";
+      echo "</section>";
+
+      echo "<section class='sentinelone-panel sentinelone-panel--wide'>";
+      self::panelHead(__('Regras de ticket', 'sentinelone'), __('Status E classificacao precisam casar; campo vazio = todos; ameacas resolvidas sao ignoradas.', 'sentinelone'), 'ti-ticket');
       $ticketRulesConfigured = trim((string)$config['ticket_status_filter']) !== ''
          || trim((string)$config['ticket_classification_filter']) !== '';
       if ((string)$config['create_tickets'] === '1' && !$ticketRulesConfigured) {
          echo "<div class='sentinelone-inline-warning'>";
          echo "<span class='ti ti-alert-triangle'></span>";
-         echo "<span><strong>Aguardando regras.</strong> A criacao de tickets esta ligada, mas nenhuma regra de status ou classificacao foi definida &mdash; nenhum ticket sera aberto ate preencher pelo menos um dos campos abaixo.</span>";
+         echo "<span><strong>" . __('Aguardando regras.', 'sentinelone') . "</strong> " . __('A criacao de tickets esta ligada, mas nenhuma regra de status ou classificacao foi definida &mdash; nenhum ticket sera aberto ate preencher pelo menos um dos campos abaixo.', 'sentinelone') . "</span>";
          echo "</div>";
       }
       echo "<div class='sentinelone-panel__body sentinelone-fields'>";
-      self::renderMultiSelect('ticket_status_filter', 'Criar tickets somente para status', self::threatStatusOptions(), (string)$config['ticket_status_filter'], $canUpdate, 'Vazio = qualquer status (OU entre os escolhidos). Ameacas resolvidas/mitigadas sao sempre ignoradas.');
-      self::renderMultiSelect('ticket_classification_filter', 'Criar tickets somente para classificacoes', self::threatClassificationOptions(), (string)$config['ticket_classification_filter'], $canUpdate, 'Vazio = qualquer classificacao. Combina em E (AND) com o filtro de status.');
-      self::renderTicketCategoryDropdown('ticket_category_id', 'Categoria GLPI do ticket', (int)$config['ticket_category_id'], $canUpdate);
-      self::renderUserDropdown('ticket_requester_id', 'Usuario solicitante (integracao)', (int)$config['ticket_requester_id'], $canUpdate, 'Todos os tickets abrem com este usuario como solicitante/autor. Crie um usuario dedicado (ex.: "integracao") para identificar os chamados do plugin.');
-      self::renderSelectFromArray('ticket_urgency', 'Urgencia', self::ticketScaleOptions(false), (int)$config['ticket_urgency'], $canUpdate);
-      self::renderSelectFromArray('ticket_impact', 'Impacto', self::ticketScaleOptions(false), (int)$config['ticket_impact'], $canUpdate);
-      self::renderSelectFromArray('ticket_priority', 'Prioridade', self::ticketScaleOptions(true), (int)$config['ticket_priority'], $canUpdate);
+      self::renderMultiSelect('ticket_status_filter', __('Criar tickets somente para status', 'sentinelone'), self::threatStatusOptions(), (string)$config['ticket_status_filter'], $canUpdate, __('Vazio = qualquer status (OU entre os escolhidos). Ameacas resolvidas/mitigadas sao sempre ignoradas.', 'sentinelone'));
+      self::renderMultiSelect('ticket_classification_filter', __('Criar tickets somente para classificacoes', 'sentinelone'), self::threatClassificationOptions(), (string)$config['ticket_classification_filter'], $canUpdate, __('Vazio = qualquer classificacao. Combina em E (AND) com o filtro de status.', 'sentinelone'));
+      self::renderTicketCategoryDropdown('ticket_category_id', __('Categoria GLPI do ticket', 'sentinelone'), (int)$config['ticket_category_id'], $canUpdate);
+      self::renderUserDropdown('ticket_requester_id', __('Usuario solicitante (integracao)', 'sentinelone'), (int)$config['ticket_requester_id'], $canUpdate, __('Todos os tickets abrem com este usuario como solicitante/autor. Crie um usuario dedicado (ex.: "integracao") para identificar os chamados do plugin.', 'sentinelone'));
+      self::renderGroupDropdown('ticket_group_id', __('Grupo responsavel (atribuicao)', 'sentinelone'), (int)($config['ticket_group_id'] ?? 0), $canUpdate, __('Grupo GLPI atribuido como responsavel em todos os tickets criados pelo plugin. Deixe em branco para nao atribuir.', 'sentinelone'));
+      self::renderSelectFromArray('ticket_urgency', __('Urgencia', 'sentinelone'), self::ticketScaleOptions(false), (int)$config['ticket_urgency'], $canUpdate);
+      self::renderSelectFromArray('ticket_impact', __('Impacto', 'sentinelone'), self::ticketScaleOptions(false), (int)$config['ticket_impact'], $canUpdate);
+      self::renderSelectFromArray('ticket_priority', __('Prioridade', 'sentinelone'), self::ticketScaleOptions(true), (int)$config['ticket_priority'], $canUpdate);
       echo "</div>";
       echo "</section>";
 
       echo "<section class='sentinelone-panel sentinelone-panel--wide'>";
-      self::panelHead('Saude de agentes e alertas', 'Tickets por problema de agente e e-mails de alerta.', 'ti-heartbeat');
+      self::panelHead(__('Saude de agentes e alertas', 'sentinelone'), __('Tickets por problema de agente e e-mails de alerta.', 'sentinelone'), 'ti-heartbeat');
       echo "<div class='sentinelone-panel__body sentinelone-fields'>";
-      self::renderYesNo('create_agent_tickets', 'Criar tickets de saude do agente', (string)$config['create_agent_tickets'] === '1', $canUpdate, 'Abre um ticket por agente com problema (offline/infectado/desatualizado).');
-      self::renderNumber('ticket_offline_hours', 'Horas offline para abrir ticket', (int)$config['ticket_offline_hours'], 1, 8760, $canUpdate, 'A partir de quantas horas sem contato o agente vira um problema.');
-      self::renderText('min_agent_version', 'Versao minima do agente (opcional)', (string)$config['min_agent_version'], 'ex.: 23.4.2.14', $canUpdate, false, 'Abaixo desta versao o agente e considerado desatualizado. Vazio = nao checa.');
-      self::renderText('alert_emails', 'E-mails para alertas (separados por virgula)', (string)$config['alert_emails'], 'soc@empresa.com, ti@empresa.com', $canUpdate, true, 'Destinatarios dos alertas. Requer e-mail/SMTP configurado no GLPI.');
-      self::renderYesNo('alert_on_critical_threat', 'Enviar e-mail em ameaca critica', (string)$config['alert_on_critical_threat'] === '1', $canUpdate, 'Envia quando uma nova ameaca critica e sincronizada.');
-      self::renderYesNo('alert_on_agent_issue', 'Enviar e-mail em problema de agente', (string)$config['alert_on_agent_issue'] === '1', $canUpdate, 'Enviado junto com a abertura do ticket de saude do agente.');
+      self::renderYesNo('create_agent_tickets', __('Criar tickets de saude do agente', 'sentinelone'), (string)$config['create_agent_tickets'] === '1', $canUpdate, __('Abre um ticket por agente com problema (offline/infectado/desatualizado).', 'sentinelone'));
+      self::renderNumber('ticket_offline_hours', __('Horas offline para abrir ticket', 'sentinelone'), (int)$config['ticket_offline_hours'], 1, 8760, $canUpdate, __('A partir de quantas horas sem contato o agente vira um problema.', 'sentinelone'));
+      self::renderText('min_agent_version', __('Versao minima do agente (opcional)', 'sentinelone'), (string)$config['min_agent_version'], 'ex.: 23.4.2.14', $canUpdate, false, __('Abaixo desta versao o agente e considerado desatualizado. Vazio = nao checa.', 'sentinelone'));
+      self::renderText('alert_emails', __('E-mails para alertas (separados por virgula)', 'sentinelone'), (string)$config['alert_emails'], 'soc@empresa.com, ti@empresa.com', $canUpdate, true, __('Destinatarios dos alertas. Requer e-mail/SMTP configurado no GLPI.', 'sentinelone'));
+      self::renderYesNo('alert_on_critical_threat', __('Enviar e-mail em ameaca critica', 'sentinelone'), (string)$config['alert_on_critical_threat'] === '1', $canUpdate, __('Envia quando uma nova ameaca critica e sincronizada.', 'sentinelone'));
+      self::renderYesNo('alert_on_agent_issue', __('Enviar e-mail em problema de agente', 'sentinelone'), (string)$config['alert_on_agent_issue'] === '1', $canUpdate, __('Enviado junto com a abertura do ticket de saude do agente.', 'sentinelone'));
+
+      if ($canUpdate) {
+         echo "<div class='sentinelone-field'>";
+         echo "<div class='sentinelone-field__label'><span>" . __('Testar envio de e-mail', 'sentinelone') . "</span></div>";
+         echo "<div class='sentinelone-field__control'>";
+         echo "<button type='button' class='btn btn-outline-secondary' id='sentinelone-test-email-btn'><span class='ti ti-mail'></span>" . __('Enviar e-mail de teste', 'sentinelone') . "</button>";
+         echo "<div id='sentinelone-test-email-result' style='margin-top:8px;font-size:13px'></div>";
+         echo "</div>";
+         echo "<div class='sentinelone-field__help'>" . __('Envia um e-mail de teste imediato para os destinatarios configurados acima.', 'sentinelone') . "</div>";
+         echo "</div>";
+      }
+
       echo "</div>";
       echo "</section>";
       echo "</div>";
 
       echo "<div class='sentinelone-config__actions'>";
-      echo "<button class='btn btn-primary' type='submit' name='update' value='1'" . (!$canUpdate ? ' disabled' : '') . "><span class='ti ti-device-floppy'></span>Salvar</button>";
-      echo "<button class='btn btn-outline-primary' type='submit' name='test' value='1' data-sentinelone-test" . (!$canUpdate ? ' disabled' : '') . "><span class='ti ti-plug-connected'></span>Testar conexao</button>";
+      echo "<button class='btn btn-primary' type='submit' name='update' value='1'" . (!$canUpdate ? ' disabled' : '') . "><span class='ti ti-device-floppy'></span>" . __('Salvar', 'sentinelone') . "</button>";
+      echo "<button class='btn btn-outline-primary' type='submit' name='test' value='1' data-sentinelone-test" . (!$canUpdate ? ' disabled' : '') . "><span class='ti ti-plug-connected'></span>" . __('Testar conexao', 'sentinelone') . "</button>";
       echo "</div>";
       \Html::closeForm();
       self::renderScript();
@@ -360,6 +411,15 @@ class Config extends \CommonGLPI
       global $CFG_GLPI;
 
       return $CFG_GLPI['root_doc'] . '/plugins/sentinelone/front/config.form.php';
+   }
+
+   private static function renderTextarea(string $name, string $label, string $value, string $placeholder = '', bool $enabled = true, ?string $help = null): void
+   {
+      echo "<label class='sentinelone-field sentinelone-field--wide'>";
+      echo "<span>" . self::h($label) . "</span>";
+      echo "<textarea class='form-control' name='" . self::h($name) . "' rows='4' placeholder='" . self::h($placeholder) . "'" . self::disabled(!$enabled) . ">" . self::h($value) . "</textarea>";
+      self::renderHelp($help);
+      echo "</label>";
    }
 
    private static function renderText(string $name, string $label, string $value, string $placeholder = '', bool $enabled = true, bool $wide = false, ?string $help = null): void
@@ -403,7 +463,7 @@ class Config extends \CommonGLPI
       echo "<label class='sentinelone-field'>";
       echo "<span>" . self::h($label) . "</span>";
       echo "<input class='form-control' type='password' name='" . self::h($name) . "' autocomplete='new-password' placeholder='" . self::h($help) . "'" . self::disabled(!$enabled) . ">";
-      echo "<small>Deixe em branco para manter o token atual.</small>";
+      echo "<small>" . __('Deixe em branco para manter o token atual.', 'sentinelone') . "</small>";
       echo "</label>";
    }
 
@@ -419,7 +479,7 @@ class Config extends \CommonGLPI
          $selected = (!$isCustom && (string)$optionValue === $value) ? ' selected' : '';
          echo "<option value='" . self::h((string)$optionValue) . "'{$selected}>" . self::h((string)$optionLabel) . "</option>";
       }
-      echo "<option value='__custom__'" . ($isCustom ? ' selected' : '') . ">Personalizado...</option>";
+      echo "<option value='__custom__'" . ($isCustom ? ' selected' : '') . ">" . __('Personalizado...', 'sentinelone') . "</option>";
       echo "</select>";
       echo "<input class='form-control" . ($isCustom ? '' : ' sentinelone-field--hidden') . "' type='text' name='" . self::h($name) . "_custom' data-s1-preset-custom='" . self::h($name) . "' value='" . self::h($isCustom ? $value : '') . "' placeholder='" . self::h($customPlaceholder) . "'" . self::disabled(!$enabled) . ">";
       if ($help !== '') {
@@ -442,8 +502,8 @@ class Config extends \CommonGLPI
       echo "<label class='sentinelone-field'>";
       echo "<span>" . self::h($label) . "</span>";
       echo "<select class='form-select' name='" . self::h($name) . "'" . self::disabled(!$enabled) . ">";
-      echo "<option value='0'" . (!$selected ? ' selected' : '') . ">Nao</option>";
-      echo "<option value='1'" . ($selected ? ' selected' : '') . ">Sim</option>";
+      echo "<option value='0'" . (!$selected ? ' selected' : '') . ">" . __('Nao', 'sentinelone') . "</option>";
+      echo "<option value='1'" . ($selected ? ' selected' : '') . ">" . __('Sim', 'sentinelone') . "</option>";
       echo "</select>";
       self::renderHelp($help);
       echo "</label>";
@@ -466,7 +526,7 @@ class Config extends \CommonGLPI
          'permit_select_parent' => true,
          'readonly'             => !$enabled,
       ]);
-      echo "<small>Usada para gravar agentes, ameacas e tickets criados pela integracao.</small>";
+      echo "<small>" . __('Usada para gravar agentes, ameacas e tickets criados pela integracao.', 'sentinelone') . "</small>";
       echo "</label>";
    }
 
@@ -484,9 +544,26 @@ class Config extends \CommonGLPI
          'width'               => '100%',
          'addicon'             => false,
          'display_emptychoice' => true,
-         'emptylabel'          => 'Sem categoria',
+         'emptylabel'          => __('Sem categoria', 'sentinelone'),
          'readonly'            => !$enabled,
       ]);
+      echo "</label>";
+   }
+
+   private static function renderGroupDropdown(string $name, string $label, int $value, bool $enabled = true, ?string $help = null): void
+   {
+      echo "<label class='sentinelone-field'>";
+      echo "<span>" . self::h($label) . "</span>";
+      \Group::dropdown([
+         'name'                => $name,
+         'value'               => $value,
+         'width'               => '100%',
+         'comments'            => false,
+         'display_emptychoice' => true,
+         'emptylabel'          => __('Sem grupo (padrao do GLPI)', 'sentinelone'),
+         'readonly'            => !$enabled,
+      ]);
+      self::renderHelp($help);
       echo "</label>";
    }
 
@@ -504,7 +581,7 @@ class Config extends \CommonGLPI
          'width'               => '100%',
          'comments'            => false,
          'display_emptychoice' => true,
-         'emptylabel'          => 'Sem usuario (padrao do GLPI)',
+         'emptylabel'          => __('Sem usuario (padrao do GLPI)', 'sentinelone'),
          'readonly'            => !$enabled,
       ]);
       self::renderHelp($help);
@@ -566,12 +643,12 @@ class Config extends \CommonGLPI
    private static function threatStatusOptions(): array
    {
       return [
-         'active'        => 'Ativo (active)',
-         'unmitigated'   => 'Nao mitigado (unmitigated)',
-         'not_mitigated' => 'Nao mitigado (not_mitigated)',
-         'blocked'       => 'Bloqueado (blocked)',
-         'suspicious'    => 'Suspeito (suspicious)',
-         'pending'       => 'Pendente (pending)',
+         'active'        => __('Ativo (active)', 'sentinelone'),
+         'unmitigated'   => __('Nao mitigado (unmitigated)', 'sentinelone'),
+         'not_mitigated' => __('Nao mitigado (not_mitigated)', 'sentinelone'),
+         'blocked'       => __('Bloqueado (blocked)', 'sentinelone'),
+         'suspicious'    => __('Suspeito (suspicious)', 'sentinelone'),
+         'pending'       => __('Pendente (pending)', 'sentinelone'),
       ];
    }
 
@@ -582,24 +659,24 @@ class Config extends \CommonGLPI
    private static function threatClassificationOptions(): array
    {
       return [
-         'malware'     => 'Malware',
-         'ransomware'  => 'Ransomware',
-         'trojan'      => 'Trojan',
-         'virus'       => 'Virus',
-         'worm'        => 'Worm',
-         'backdoor'    => 'Backdoor',
-         'exploit'     => 'Exploit',
-         'pua'         => 'PUA (potencialmente indesejado)',
-         'adware'      => 'Adware',
-         'spyware'     => 'Spyware',
-         'rootkit'     => 'Rootkit',
-         'hacktool'    => 'Hacktool',
-         'downloader'  => 'Downloader',
-         'dropper'     => 'Dropper',
-         'infostealer' => 'Infostealer',
-         'phishing'    => 'Phishing',
-         'generic'     => 'Generic',
-         'unknown'     => 'Unknown',
+         'malware'     => __('Malware', 'sentinelone'),
+         'ransomware'  => __('Ransomware', 'sentinelone'),
+         'trojan'      => __('Trojan', 'sentinelone'),
+         'virus'       => __('Virus', 'sentinelone'),
+         'worm'        => __('Worm', 'sentinelone'),
+         'backdoor'    => __('Backdoor', 'sentinelone'),
+         'exploit'     => __('Exploit', 'sentinelone'),
+         'pua'         => __('PUA (potencialmente indesejado)', 'sentinelone'),
+         'adware'      => __('Adware', 'sentinelone'),
+         'spyware'     => __('Spyware', 'sentinelone'),
+         'rootkit'     => __('Rootkit', 'sentinelone'),
+         'hacktool'    => __('Hacktool', 'sentinelone'),
+         'downloader'  => __('Downloader', 'sentinelone'),
+         'dropper'     => __('Dropper', 'sentinelone'),
+         'infostealer' => __('Infostealer', 'sentinelone'),
+         'phishing'    => __('Phishing', 'sentinelone'),
+         'generic'     => __('Generic', 'sentinelone'),
+         'unknown'     => __('Unknown', 'sentinelone'),
       ];
    }
 
@@ -619,15 +696,15 @@ class Config extends \CommonGLPI
    private static function ticketScaleOptions(bool $includeMajor): array
    {
       $options = [
-         1 => '1 - Muito baixa',
-         2 => '2 - Baixa',
-         3 => '3 - Media',
-         4 => '4 - Alta',
-         5 => '5 - Muito alta',
+         1 => __('1 - Muito baixa', 'sentinelone'),
+         2 => __('2 - Baixa', 'sentinelone'),
+         3 => __('3 - Media', 'sentinelone'),
+         4 => __('4 - Alta', 'sentinelone'),
+         5 => __('5 - Muito alta', 'sentinelone'),
       ];
 
       if ($includeMajor) {
-         $options[6] = '6 - Critica';
+         $options[6] = __('6 - Critica', 'sentinelone');
       }
 
       return $options;
@@ -647,7 +724,7 @@ class Config extends \CommonGLPI
       $status = (int)($flash['status'] ?? 0);
       $message = (string)($flash['message'] ?? '');
       $class = $ok ? 'sentinelone-test-result--ok' : 'sentinelone-test-result--error';
-      $title = $ok ? 'Conexao OK' : 'Falha na conexao';
+      $title = $ok ? __('Conexao OK', 'sentinelone') : __('Falha na conexao', 'sentinelone');
 
       echo "<div class='sentinelone-test-result {$class}'>";
       echo "<strong>" . self::h($title) . "</strong>";
@@ -761,6 +838,56 @@ class Config extends \CommonGLPI
       apply(false);
    });
 })();
+
+(function () {
+   const btn = document.getElementById('sentinelone-test-email-btn');
+   if (!btn) {
+      return;
+   }
+
+   const resultEl = document.getElementById('sentinelone-test-email-result');
+   const form = document.getElementById('sentinelone-config-form');
+   const originalHtml = btn.innerHTML;
+
+   btn.addEventListener('click', function () {
+      if (btn.disabled) {
+         return;
+      }
+
+      const data = new FormData(form);
+      data.set('ajax_test_email', '1');
+      data.set('test_email', '1');
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span>Enviando...';
+      resultEl.innerHTML = '';
+
+      const token = form.querySelector('input[name="_glpi_csrf_token"]');
+
+      fetch(form.action, {
+         method: 'POST',
+         body: data,
+         credentials: 'same-origin',
+         headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-Glpi-Csrf-Token': token ? token.value : ''
+         }
+      })
+         .then(function (r) { return r.json(); })
+         .then(function (payload) {
+            const color = payload.ok ? '#2b7a0b' : '#b5179e';
+            resultEl.innerHTML = '<span style="color:' + color + ';font-weight:600">' +
+               (payload.ok ? '✅ ' : '❌ ') + (payload.message || '') + '</span>';
+         })
+         .catch(function () {
+            resultEl.innerHTML = '<span style="color:#b5179e;font-weight:600">❌ Falha inesperada ao enviar.</span>';
+         })
+         .finally(function () {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+         });
+   });
+})();
 </script>
 HTML;
    }
@@ -831,6 +958,50 @@ HTML;
       $emails = preg_split('/[\r\n,;\s]+/', (string)($config['alert_emails'] ?? '')) ?: [];
 
       return array_values(array_filter(array_map('trim', $emails), static fn($e): bool => $e !== ''));
+   }
+
+   public static function parseSiteEntityMap(string $map): array
+   {
+      $result = [];
+
+      foreach (preg_split('/[\r\n]+/', $map) ?: [] as $line) {
+         $line = trim($line);
+         if ($line === '' || !str_contains($line, '=')) {
+            continue;
+         }
+
+         [$site, $entityId] = explode('=', $line, 2);
+         $site = trim($site);
+         $entityId = (int)trim($entityId);
+
+         if ($site !== '' && $entityId >= 0) {
+            $result[$site] = $entityId;
+         }
+      }
+
+      return $result;
+   }
+
+   private static function cleanSiteEntityMap($value): string
+   {
+      $lines = [];
+
+      foreach (preg_split('/[\r\n]+/', (string)$value) ?: [] as $line) {
+         $line = trim($line);
+         if ($line === '' || !str_contains($line, '=')) {
+            continue;
+         }
+
+         [$site, $entityId] = explode('=', $line, 2);
+         $site = trim($site);
+         $entityId = (int)trim($entityId);
+
+         if ($site !== '' && $entityId >= 0) {
+            $lines[] = $site . '=' . $entityId;
+         }
+      }
+
+      return implode("\n", $lines);
    }
 
    private static function boolInput(array $input, string $key): string

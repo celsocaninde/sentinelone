@@ -1,11 +1,9 @@
 <?php
 
-use GlpiPlugin\Sentinelone\Agent;
-use GlpiPlugin\Sentinelone\Profile;
-
 include('../../../inc/includes.php');
 
-\Session::checkRight(Profile::RIGHT_READ, READ);
+\Html::redirect(\Plugin::getWebDir('sentinelone') . '/front/coverage.php?tab=unprotected');
+exit;
 
 global $CFG_GLPI;
 
@@ -23,6 +21,7 @@ $formatDate = static function ($value) use ($h): string {
 };
 
 \Html::header('Endpoints sem agente SentinelOne', $_SERVER['PHP_SELF'], 'plugins', 'sentinelone');
+echo "<style>.container-xl,.container-lg{max-width:100%!important}</style>";
 
 echo "<div class='sentinelone-diagnostic'>";
 echo "<div class='sentinelone-diagnostic__hero'>";

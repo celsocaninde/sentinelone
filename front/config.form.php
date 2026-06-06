@@ -2,6 +2,7 @@
 
 use GlpiPlugin\Sentinelone\ApiClient;
 use GlpiPlugin\Sentinelone\Config;
+use GlpiPlugin\Sentinelone\Notifier;
 use GlpiPlugin\Sentinelone\Profile;
 
 include('../../../inc/includes.php');
@@ -11,8 +12,9 @@ include('../../../inc/includes.php');
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
    \Session::checkRight(Profile::RIGHT_CONFIG, UPDATE);
 
-   $isAjaxTest = isset($_POST['ajax_test']);
-   $isTest = isset($_POST['test']) || $isAjaxTest;
+   $isAjaxTest      = isset($_POST['ajax_test']);
+   $isTest          = isset($_POST['test']) || $isAjaxTest;
+   $isTestEmail     = isset($_POST['test_email']) || isset($_POST['ajax_test_email']);
    $startedAt = microtime(true);
    $sendJson = static function(array $payload): void {
       header('Content-Type: application/json; charset=UTF-8');
@@ -21,7 +23,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
    };
 
    try {
-      if ($isTest) {
+      if ($isTestEmail) {
+         $config = Config::buildConfigFromInput($_POST);
+         $result = Notifier::sendTestEmail($config);
+         $sendJson($result);
+      } elseif ($isTest) {
          $config = Config::buildConfigFromInput($_POST);
          $response = ApiClient::fromConfig($config)->testConnection();
          $durationMs = max(1, (int)round((microtime(true) - $startedAt) * 1000));
@@ -71,5 +77,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 \Html::header('SentinelOne', $_SERVER['PHP_SELF'], 'config', 'plugins');
+echo "<style>.container-xl,.container-lg{max-width:100%!important}</style>";
 Config::showForm();
 \Html::footer();

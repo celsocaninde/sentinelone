@@ -83,6 +83,21 @@ function plugin_sentinelone_install(): bool
             KEY `idx_tickets_id` (`tickets_id`),
             KEY `idx_agent_id` (`sentinelone_agent_id`)
          ) ENGINE=InnoDB DEFAULT CHARSET={$charset} COLLATE={$collation}",
+      'glpi_plugin_sentinelone_activities' => "
+         CREATE TABLE `glpi_plugin_sentinelone_activities` (
+            `id` int unsigned NOT NULL AUTO_INCREMENT,
+            `sentinelone_activity_id` varchar(255) NOT NULL,
+            `sentinelone_agent_id` varchar(255) DEFAULT NULL,
+            `plugin_sentinelone_agents_id` int unsigned DEFAULT NULL,
+            `activity_type` varchar(255) DEFAULT NULL,
+            `description` text DEFAULT NULL,
+            `occurred_at` timestamp NULL DEFAULT NULL,
+            `date_creation` timestamp NULL DEFAULT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uniq_sentinelone_activity` (`sentinelone_activity_id`),
+            KEY `idx_agent_id` (`sentinelone_agent_id`),
+            KEY `idx_occurred_at` (`occurred_at`)
+         ) ENGINE=InnoDB DEFAULT CHARSET={$charset} COLLATE={$collation}",
       'glpi_plugin_sentinelone_logs' => "
          CREATE TABLE `glpi_plugin_sentinelone_logs` (
             `id` int unsigned NOT NULL AUTO_INCREMENT,
@@ -94,6 +109,65 @@ function plugin_sentinelone_install(): bool
             PRIMARY KEY (`id`),
             KEY `idx_action` (`action`),
             KEY `idx_status` (`status`)
+         ) ENGINE=InnoDB DEFAULT CHARSET={$charset} COLLATE={$collation}",
+      'glpi_plugin_sentinelone_groups' => "
+         CREATE TABLE `glpi_plugin_sentinelone_groups` (
+            `id` int unsigned NOT NULL AUTO_INCREMENT,
+            `sentinelone_id` varchar(255) NOT NULL,
+            `name` varchar(255) DEFAULT NULL,
+            `type` varchar(64) DEFAULT NULL,
+            `policy_mode` varchar(64) NOT NULL DEFAULT 'unknown',
+            `agent_count` int unsigned NOT NULL DEFAULT 0,
+            `site_name` varchar(255) DEFAULT NULL,
+            `site_id` varchar(255) DEFAULT NULL,
+            `date_creation` timestamp NULL DEFAULT NULL,
+            `date_mod` timestamp NULL DEFAULT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uniq_sentinelone_group` (`sentinelone_id`),
+            KEY `idx_policy_mode` (`policy_mode`)
+         ) ENGINE=InnoDB DEFAULT CHARSET={$charset} COLLATE={$collation}",
+      'glpi_plugin_sentinelone_rogue_devices' => "
+         CREATE TABLE `glpi_plugin_sentinelone_rogue_devices` (
+            `id` int unsigned NOT NULL AUTO_INCREMENT,
+            `sentinelone_id` varchar(255) NOT NULL,
+            `hostname` varchar(255) DEFAULT NULL,
+            `ip` varchar(128) DEFAULT NULL,
+            `external_ip` varchar(128) DEFAULT NULL,
+            `mac` varchar(64) DEFAULT NULL,
+            `os` varchar(255) DEFAULT NULL,
+            `classification` varchar(128) DEFAULT NULL,
+            `vendor` varchar(255) DEFAULT NULL,
+            `site_name` varchar(255) DEFAULT NULL,
+            `detecting_agent_name` varchar(255) DEFAULT NULL,
+            `open_ports` text DEFAULT NULL,
+            `first_seen` timestamp NULL DEFAULT NULL,
+            `last_seen` timestamp NULL DEFAULT NULL,
+            `date_creation` timestamp NULL DEFAULT NULL,
+            `date_mod` timestamp NULL DEFAULT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uniq_rogue_id` (`sentinelone_id`),
+            KEY `idx_ip` (`ip`),
+            KEY `idx_last_seen` (`last_seen`)
+         ) ENGINE=InnoDB DEFAULT CHARSET={$charset} COLLATE={$collation}",
+      'glpi_plugin_sentinelone_cves' => "
+         CREATE TABLE `glpi_plugin_sentinelone_cves` (
+            `id` int unsigned NOT NULL AUTO_INCREMENT,
+            `plugin_sentinelone_agents_id` int unsigned NOT NULL DEFAULT 0,
+            `cve_id` varchar(64) NOT NULL,
+            `severity` varchar(32) NOT NULL DEFAULT 'UNKNOWN',
+            `severity_rank` tinyint unsigned NOT NULL DEFAULT 5,
+            `cvss_score` decimal(4,1) DEFAULT NULL,
+            `application_name` varchar(255) DEFAULT NULL,
+            `application_version` varchar(128) DEFAULT NULL,
+            `description` text DEFAULT NULL,
+            `cve_link` varchar(512) DEFAULT NULL,
+            `published_date` timestamp NULL DEFAULT NULL,
+            `date_creation` timestamp NULL DEFAULT NULL,
+            `date_mod` timestamp NULL DEFAULT NULL,
+            PRIMARY KEY (`id`),
+            KEY `idx_agent` (`plugin_sentinelone_agents_id`),
+            KEY `idx_severity_rank` (`severity_rank`),
+            KEY `idx_cve_id` (`cve_id`)
          ) ENGINE=InnoDB DEFAULT CHARSET={$charset} COLLATE={$collation}",
    ];
 
@@ -111,12 +185,71 @@ function plugin_sentinelone_install(): bool
       }
    }
 
+   if ($DB->tableExists($threatsTable) && !$DB->fieldExists($threatsTable, 'synced_note_ids')) {
+      $migration->addField($threatsTable, 'synced_note_ids', 'text', ['value' => null]);
+   }
+
    $agentsTable = 'glpi_plugin_sentinelone_agents';
    if ($DB->tableExists($agentsTable) && !$DB->fieldExists($agentsTable, 'tickets_id')) {
-      $migration->addField($agentsTable, 'tickets_id', 'integer', ['value' => null]);
+      $DB->doQuery("ALTER TABLE `{$agentsTable}` ADD COLUMN `tickets_id` int unsigned DEFAULT NULL");
+   } elseif ($DB->tableExists($agentsTable) && $DB->fieldExists($agentsTable, 'tickets_id')) {
+      $col = $DB->request(['SELECT' => ['COLUMN_TYPE'], 'FROM' => 'information_schema.COLUMNS',
+         'WHERE' => ['TABLE_SCHEMA' => $DB->dbdefault, 'TABLE_NAME' => $agentsTable, 'COLUMN_NAME' => 'tickets_id']])->current();
+      if ($col && strpos((string)($col['COLUMN_TYPE'] ?? ''), 'unsigned') === false) {
+         $DB->doQuery("ALTER TABLE `{$agentsTable}` MODIFY COLUMN `tickets_id` int unsigned DEFAULT NULL");
+      }
+   }
+   if ($DB->tableExists($agentsTable) && !$DB->fieldExists($agentsTable, 'is_network_quarantine')) {
+      $migration->addField($agentsTable, 'is_network_quarantine', 'bool', ['value' => 0]);
    }
 
    SentineloneConfig::installDefaults();
+
+   // Insere novos campos de configuracao para instalacoes existentes.
+   $existingConfig = \Config::getConfigurationValues(SentineloneConfig::CONTEXT, ['sync_activities', 'site_entity_map', 'ticket_group_id', 'sync_software', 'sync_software_limit', 'sync_cves', 'sync_cves_limit', 'sync_rogues', 'sync_incremental', 'report_recipients']);
+   $newConfigDefaults = [];
+   if (!isset($existingConfig['sync_activities'])) {
+      $newConfigDefaults['sync_activities'] = '0';
+   }
+   if (!isset($existingConfig['site_entity_map'])) {
+      $newConfigDefaults['site_entity_map'] = '';
+   }
+   if (!isset($existingConfig['ticket_group_id'])) {
+      $newConfigDefaults['ticket_group_id'] = '0';
+   }
+   if (!isset($existingConfig['sync_software'])) {
+      $newConfigDefaults['sync_software'] = '0';
+   }
+   if (!isset($existingConfig['sync_software_limit'])) {
+      $newConfigDefaults['sync_software_limit'] = '30';
+   }
+   if (!isset($existingConfig['sync_groups'])) {
+      $newConfigDefaults['sync_groups'] = '1';
+   }
+   if (!isset($existingConfig['alert_on_agent_offline'])) {
+      $newConfigDefaults['alert_on_agent_offline'] = '0';
+   }
+   if (!isset($existingConfig['offline_alert_hours'])) {
+      $newConfigDefaults['offline_alert_hours'] = '24';
+   }
+   if (!isset($existingConfig['sync_cves'])) {
+      $newConfigDefaults['sync_cves'] = '0';
+   }
+   if (!isset($existingConfig['sync_cves_limit'])) {
+      $newConfigDefaults['sync_cves_limit'] = '30';
+   }
+   if (!isset($existingConfig['sync_rogues'])) {
+      $newConfigDefaults['sync_rogues'] = '0';
+   }
+   if (!isset($existingConfig['sync_incremental'])) {
+      $newConfigDefaults['sync_incremental'] = '0';
+   }
+   if (!isset($existingConfig['report_recipients'])) {
+      $newConfigDefaults['report_recipients'] = '';
+   }
+   if ($newConfigDefaults !== []) {
+      \Config::setConfigurationValues(SentineloneConfig::CONTEXT, $newConfigDefaults);
+   }
    Profile::ensureProfileRights();
 
    // mode: execucao automatica via CLI (cron do sistema).
@@ -128,7 +261,49 @@ function plugin_sentinelone_install(): bool
       'state'     => CronTask::STATE_DISABLE,
    ]);
 
+   CronTask::register(Sync::class, 'syncsoftware', HOUR_TIMESTAMP * 24, [
+      'mode'      => CronTask::MODE_EXTERNAL,
+      'allowmode' => CronTask::MODE_INTERNAL | CronTask::MODE_EXTERNAL,
+      'state'     => CronTask::STATE_DISABLE,
+   ]);
+
+   CronTask::register(Sync::class, 'syncactivities', HOUR_TIMESTAMP * 4, [
+      'mode'      => CronTask::MODE_EXTERNAL,
+      'allowmode' => CronTask::MODE_INTERNAL | CronTask::MODE_EXTERNAL,
+      'state'     => CronTask::STATE_DISABLE,
+   ]);
+
    CronTask::register(Sync::class, 'syncthreats', HOUR_TIMESTAMP, [
+      'mode'      => CronTask::MODE_EXTERNAL,
+      'allowmode' => CronTask::MODE_INTERNAL | CronTask::MODE_EXTERNAL,
+      'state'     => CronTask::STATE_DISABLE,
+   ]);
+
+   CronTask::register(Sync::class, 'syncgroups', HOUR_TIMESTAMP * 6, [
+      'mode'      => CronTask::MODE_EXTERNAL,
+      'allowmode' => CronTask::MODE_INTERNAL | CronTask::MODE_EXTERNAL,
+      'state'     => CronTask::STATE_DISABLE,
+   ]);
+
+   CronTask::register(Sync::class, 'alertoffline', HOUR_TIMESTAMP * 4, [
+      'mode'      => CronTask::MODE_EXTERNAL,
+      'allowmode' => CronTask::MODE_INTERNAL | CronTask::MODE_EXTERNAL,
+      'state'     => CronTask::STATE_DISABLE,
+   ]);
+
+   CronTask::register(Sync::class, 'synccves', HOUR_TIMESTAMP * 24, [
+      'mode'      => CronTask::MODE_EXTERNAL,
+      'allowmode' => CronTask::MODE_INTERNAL | CronTask::MODE_EXTERNAL,
+      'state'     => CronTask::STATE_DISABLE,
+   ]);
+
+   CronTask::register(Sync::class, 'syncrogues', HOUR_TIMESTAMP * 4, [
+      'mode'      => CronTask::MODE_EXTERNAL,
+      'allowmode' => CronTask::MODE_INTERNAL | CronTask::MODE_EXTERNAL,
+      'state'     => CronTask::STATE_DISABLE,
+   ]);
+
+   CronTask::register(Sync::class, 'reportweekly', HOUR_TIMESTAMP * 24 * 7, [
       'mode'      => CronTask::MODE_EXTERNAL,
       'allowmode' => CronTask::MODE_INTERNAL | CronTask::MODE_EXTERNAL,
       'state'     => CronTask::STATE_DISABLE,
@@ -142,7 +317,7 @@ function plugin_sentinelone_install(): bool
       ['allowmode' => CronTask::MODE_INTERNAL | CronTask::MODE_EXTERNAL],
       [
          'itemtype' => Sync::class,
-         'name'     => ['syncagents', 'syncthreats'],
+         'name'     => ['syncagents', 'syncthreats', 'syncactivities', 'syncsoftware', 'syncgroups', 'alertoffline', 'synccves', 'syncrogues', 'reportweekly'],
       ]
    );
 
@@ -157,8 +332,12 @@ function plugin_sentinelone_uninstall(): bool
 
    $tables = [
       'glpi_plugin_sentinelone_logs',
+      'glpi_plugin_sentinelone_activities',
       'glpi_plugin_sentinelone_threats',
+      'glpi_plugin_sentinelone_cves',
+      'glpi_plugin_sentinelone_rogue_devices',
       'glpi_plugin_sentinelone_agents',
+      'glpi_plugin_sentinelone_groups',
       'glpi_plugin_sentinelone_configs',
    ];
 

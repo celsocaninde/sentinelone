@@ -1,19 +1,24 @@
 <?php
 
 use Glpi\Plugin\Hooks;
+use GlpiPlugin\Sentinelone\Activity;
 use GlpiPlugin\Sentinelone\Agent;
 use GlpiPlugin\Sentinelone\Config as SentineloneConfig;
+use GlpiPlugin\Sentinelone\Cve;
 use GlpiPlugin\Sentinelone\Dashboard as SentineloneDashboard;
+use GlpiPlugin\Sentinelone\RogueDevice;
 use GlpiPlugin\Sentinelone\Profile as SentineloneProfile;
 use GlpiPlugin\Sentinelone\Threat;
 
-define('PLUGIN_SENTINELONE_VERSION', '0.4.6');
+define('PLUGIN_SENTINELONE_VERSION', '1.0.0');
 define('PLUGIN_SENTINELONE_MIN_GLPI_VERSION', '11.0.0');
 define('PLUGIN_SENTINELONE_MAX_GLPI_VERSION', '11.0.99');
 
 function plugin_init_sentinelone(): void
 {
    global $PLUGIN_HOOKS;
+
+   Plugin::loadLang('sentinelone');
 
    SentineloneProfile::syncCurrentProfileRights();
 
@@ -35,6 +40,9 @@ function plugin_init_sentinelone(): void
    ]);
 
    Plugin::registerClass(Threat::class);
+   Plugin::registerClass(Activity::class);
+   Plugin::registerClass(Cve::class);
+   Plugin::registerClass(RogueDevice::class);
 
    $PLUGIN_HOOKS[Hooks::MENU_TOADD]['sentinelone'] = [
       'plugins' => Agent::class,
