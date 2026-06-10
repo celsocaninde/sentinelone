@@ -73,6 +73,9 @@ class Config extends \CommonGLPI
          'sync_rogues'          => '0',
          'sync_incremental'     => '0',
          'report_recipients'    => '',
+         'sync_date_from'       => '',
+         'agent_inactive_days'  => '0',
+         'log_retention_days'   => '90',
       ];
    }
 
@@ -230,6 +233,9 @@ class Config extends \CommonGLPI
       $config['sync_rogues'] = self::boolInput($input, 'sync_rogues');
       $config['sync_incremental'] = self::boolInput($input, 'sync_incremental');
       $config['report_recipients'] = self::cleanEmailList($input['report_recipients'] ?? '');
+      $config['sync_date_from'] = self::cleanDate($input['sync_date_from'] ?? '');
+      $config['agent_inactive_days'] = (string)max(0, min(3650, (int)($input['agent_inactive_days'] ?? 0)));
+      $config['log_retention_days'] = (string)max(30, min(3650, (int)($input['log_retention_days'] ?? 90)));
 
       $token = trim((string)($input['api_token'] ?? ''));
       if ($token !== '' || !$keepExistingToken) {
@@ -340,6 +346,9 @@ class Config extends \CommonGLPI
       self::renderNumber('sync_cves_limit', __('Agentes por execucao de CVE sync', 'sentinelone'), (int)($config['sync_cves_limit'] ?? 30), 1, 200, $canUpdate, __('Quantos agentes sao processados por execucao da cron de CVEs.', 'sentinelone'));
       self::renderYesNo('sync_rogues', __('Sincronizar dispositivos rogues (Ranger)', 'sentinelone'), (string)($config['sync_rogues'] ?? '0') === '1', $canUpdate, __('Busca endpoints detectados na rede pelo Ranger SentinelOne que nao possuem agente instalado. Opt-in: requer licenca Ranger.', 'sentinelone'));
       self::renderYesNo('sync_incremental', __('Sync incremental (somente atualizacoes)', 'sentinelone'), (string)($config['sync_incremental'] ?? '0') === '1', $canUpdate, __('Quando ativo, as syncs de agentes e ameacas passam updatedAt__gt para buscar apenas o que mudou desde a ultima execucao. Reduz drasticamente o tempo de cron e o volume de chamadas a API. A primeira sync apos ativar sera completa.', 'sentinelone'));
+      self::renderDateInput('sync_date_from', __('Sincronizar a partir de (data de corte)', 'sentinelone'), (string)($config['sync_date_from'] ?? ''), $canUpdate, __('Opcional. Quando preenchido, a primeira sync (ou syncs sem cursor incremental) ignoram agentes e ameacas anteriores a essa data. Formato AAAA-MM-DD. Util para nao importar historico antigo na primeira execucao.', 'sentinelone'));
+      self::renderNumber('agent_inactive_days', __('Ignorar agentes sem contato ha (dias)', 'sentinelone'), (int)($config['agent_inactive_days'] ?? 0), 0, 3650, $canUpdate, __('Quando maior que 0, agentes que nao comunicaram com a console SentinelOne nos ultimos N dias nao sao sincronizados. Use para excluir maquinas desativadas ou fora de operacao. 0 = desabilitado (sincroniza todos).', 'sentinelone'));
+      self::renderNumber('log_retention_days', __('Retencao de logs internos (dias)', 'sentinelone'), (int)($config['log_retention_days'] ?? 90), 30, 3650, $canUpdate, __('Logs do plugin mais antigos que este numero de dias sao removidos automaticamente pela cron de manutencao. Minimo 30 dias.', 'sentinelone'));
       echo "</div>";
       echo "</section>";
 
@@ -493,6 +502,15 @@ class Config extends \CommonGLPI
       echo "<label class='sentinelone-field'>";
       echo "<span>" . self::h($label) . "</span>";
       echo "<input class='form-control' type='number' min='" . self::h((string)$min) . "' max='" . self::h((string)$max) . "' name='" . self::h($name) . "' value='" . self::h((string)$value) . "'" . self::disabled(!$enabled) . ">";
+      self::renderHelp($help);
+      echo "</label>";
+   }
+
+   private static function renderDateInput(string $name, string $label, string $value, bool $enabled = true, ?string $help = null): void
+   {
+      echo "<label class='sentinelone-field'>";
+      echo "<span>" . self::h($label) . "</span>";
+      echo "<input class='form-control' type='date' name='" . self::h($name) . "' value='" . self::h($value) . "'" . self::disabled(!$enabled) . ">";
       self::renderHelp($help);
       echo "</label>";
    }
@@ -1009,6 +1027,16 @@ HTML;
       return isset($input[$key]) && (string)$input[$key] === '1' ? '1' : '0';
    }
 
+   private static function cleanDate(string $value): string
+   {
+      $value = trim($value);
+      if ($value === '') {
+         return '';
+      }
+      $ts = strtotime($value);
+      return $ts !== false ? date('Y-m-d', $ts) : '';
+   }
+
    private static function protectSecret(string $secret): string
    {
       if ($secret === '' || str_starts_with($secret, self::SECRET_PREFIX)) {
@@ -1018,11 +1046,19 @@ HTML;
       if (class_exists(\GLPIKey::class)) {
          $key = new \GLPIKey();
          if (method_exists($key, 'encrypt')) {
-            return self::SECRET_PREFIX . $key->encrypt($secret);
+            $encrypted = $key->encrypt($secret);
+            if (is_string($encrypted) && $encrypted !== '') {
+               return self::SECRET_PREFIX . $encrypted;
+            }
          }
       }
 
-      return $secret;
+      // Nao armazenar em texto puro se a criptografia falhar.
+      trigger_error(
+         'SentinelOne: GLPIKey indisponivel ou falhou — token da API nao foi salvo. Verifique a configuracao de chave do GLPI.',
+         E_USER_WARNING
+      );
+      return '';
    }
 
    private static function unprotectSecret(string $secret): string

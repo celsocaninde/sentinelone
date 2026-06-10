@@ -192,6 +192,173 @@ class TicketManager
       }
    }
 
+   /**
+    * Followup adicionado quando uma NOVA ameaca chega para um endpoint que ja tem ticket aberto.
+    * Em vez de criar um segundo ticket, a ameaca e registrada aqui como nota no ticket ativo.
+    */
+   public static function addNewThreatFollowup(int $ticketId, array $threat, ?array $agent, array $config): void
+   {
+      if (!class_exists(\ITILFollowup::class)) {
+         return;
+      }
+
+      $threatName = trim((string)($threat['threat_name'] ?? 'ameaca detectada'));
+      $computer   = trim((string)($threat['computer_name'] ?? 'endpoint'));
+      $severity   = trim((string)($threat['severity'] ?? ''));
+      $classif    = trim((string)($threat['classification'] ?? ''));
+      $status     = trim((string)($threat['status'] ?? ''));
+      $accent     = self::severityColor($severity);
+
+      $body = '';
+      if ($severity !== '') {
+         $body .= self::badge("\u{1F6A8} Severidade: " . ucfirst($severity), $accent);
+      }
+      if ($classif !== '') {
+         $body .= self::badge("\u{1F9EC} " . $classif, '#1f0d50');
+      }
+      if ($status !== '') {
+         $body .= self::badge("\u{1F4CA} " . $status, '#495057');
+      }
+
+      $body .= self::kvTable([
+         ["\u{1F9EC} Ameaca", $threatName],
+         ["\u{1F4C1} Arquivo", $threat['file_path'] ?? null],
+         ["\u{1F511} SHA256", $threat['hash_sha256'] ?? null],
+         ["\u{1F194} Threat ID", $threat['sentinelone_threat_id'] ?? null],
+         ["\u{1F552} Detectada em", $threat['detected_at'] ?? null],
+      ]);
+
+      $body .= self::footerNote(
+         "\u{26A0}\u{FE0F} Nova ameaca detectada no mesmo endpoint."
+         . " Consolidada neste ticket para evitar duplicidade. Plugin SentinelOne."
+      );
+
+      $content = self::htmlCard(
+         "\u{1F6E1}\u{FE0F} SentinelOne",
+         'Nova ameaca no endpoint',
+         $computer,
+         $accent,
+         $body
+      );
+
+      try {
+         $followup = new \ITILFollowup();
+         $followup->add([
+            'items_id'        => $ticketId,
+            'itemtype'        => 'Ticket',
+            'content'         => $content,
+            'is_private'      => 0,
+            'requesttypes_id' => 0,
+         ]);
+      } catch (\Throwable $error) {
+         // followup e opcional; nao deve interromper o fluxo
+      }
+   }
+
+   /**
+    * Followup adicionado quando o status de uma ameaca muda para um valor NAO final
+    * (ex.: active → blocked, active → suspicious). Mudancas para resolvido/mitigado
+    * sao tratadas por closeForThreat() e addThreatResolvedFollowup().
+    */
+   public static function addStatusChangeFollowup(int $ticketId, array $threat, string $oldStatus, string $newStatus): void
+   {
+      if (!class_exists(\ITILFollowup::class)) {
+         return;
+      }
+
+      $threatName = trim((string)($threat['threat_name'] ?? 'ameaca'));
+
+      $statusColors = [
+         'blocked'    => '#f08c00',
+         'suspicious' => '#e8590c',
+         'pending'    => '#6b7280',
+         'active'     => '#d6336c',
+         'unmitigated' => '#d6336c',
+      ];
+      $color = $statusColors[strtolower($newStatus)] ?? '#6b2cf5';
+
+      $body  = self::badge(self::esc($oldStatus) . " \u{2192} " . self::esc($newStatus), $color);
+      $body .= self::kvTable([
+         ["\u{1F9EC} Ameaca", $threatName],
+         ["\u{1F194} Threat ID", $threat['sentinelone_threat_id'] ?? null],
+         ["\u{1F504} Status anterior", $oldStatus],
+         ["\u{2139}\u{FE0F} Novo status", $newStatus],
+      ]);
+      $body .= self::footerNote("\u{1F504} Status da ameaca atualizado automaticamente pelo plugin SentinelOne.");
+
+      $content = self::htmlCard(
+         "\u{1F6E1}\u{FE0F} SentinelOne",
+         'Status da ameaca atualizado',
+         $threatName,
+         $color,
+         $body
+      );
+
+      try {
+         $followup = new \ITILFollowup();
+         $followup->add([
+            'items_id'        => $ticketId,
+            'itemtype'        => 'Ticket',
+            'content'         => $content,
+            'is_private'      => 0,
+            'requesttypes_id' => 0,
+         ]);
+      } catch (\Throwable $error) {
+         // followup e opcional; nao deve interromper o fluxo
+      }
+   }
+
+   /**
+    * Followup adicionado quando uma ameaca e resolvida no SentinelOne MAS o endpoint
+    * ainda tem outras ameacas ativas — o ticket permanece aberto.
+    */
+   public static function addThreatResolvedFollowup(int $ticketId, array $threat): void
+   {
+      if (!class_exists(\ITILFollowup::class)) {
+         return;
+      }
+
+      $threatName = trim((string)($threat['threat_name'] ?? 'ameaca'));
+      $status     = trim((string)($threat['status'] ?? ''));
+      $verdict    = trim((string)($threat['analyst_verdict'] ?? ''));
+      $resolvedAt = trim((string)($threat['resolved_at'] ?? ''));
+
+      $body  = self::badge("\u{2705} Ameaca resolvida", '#2b7a0b');
+      $body .= self::kvTable([
+         ["\u{1F9EC} Ameaca", $threatName],
+         ["\u{1F194} Threat ID", $threat['sentinelone_threat_id'] ?? null],
+         ["\u{1F4CA} Status", $status !== '' ? $status : null],
+         ["\u{1F9D1}\u{200D}\u{2696}\u{FE0F} Veredito", $verdict !== '' ? $verdict : null],
+         ["\u{1F552} Resolvida em", $resolvedAt !== '' ? $resolvedAt : null],
+      ]);
+      $body .= self::footerNote(
+         "\u{26A0}\u{FE0F} Esta ameaca foi resolvida no SentinelOne,"
+         . " mas ainda ha outras ameacas ativas neste endpoint."
+         . " O ticket permanece aberto ate todas serem mitigadas."
+      );
+
+      $content = self::htmlCard(
+         "\u{1F6E1}\u{FE0F} SentinelOne",
+         'Ameaca resolvida (endpoint ainda ativo)',
+         $threatName,
+         '#2b7a0b',
+         $body
+      );
+
+      try {
+         $followup = new \ITILFollowup();
+         $followup->add([
+            'items_id'        => $ticketId,
+            'itemtype'        => 'Ticket',
+            'content'         => $content,
+            'is_private'      => 0,
+            'requesttypes_id' => 0,
+         ]);
+      } catch (\Throwable $error) {
+         // followup e opcional; nao deve interromper o fluxo
+      }
+   }
+
    private static function linkComputer(int $ticketId, int $computerId): void
    {
       if (!class_exists(\Item_Ticket::class)) {

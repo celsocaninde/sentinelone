@@ -39,6 +39,9 @@ class Sync
          'reportweekly' => [
             'description' => 'Envia relatorio executivo semanal com resumo operacional do SentinelOne',
          ],
+         'purgelogs' => [
+            'description' => 'Remove logs antigos do plugin SentinelOne conforme politica de retencao configurada',
+         ],
       ];
 
       return $info[strtolower($name)] ?? [];
@@ -432,20 +435,34 @@ class Sync
       $totalCves = 0;
 
       // Testa o endpoint com o primeiro agente antes de iterar todos.
-      // Se falhar (ex.: plano sem Vulnerability Management), aborta com uma unica mensagem.
+      // O resultado do probe e reutilizado na primeira iteracao para evitar chamada dupla a API.
+      $firstAgentCves = null;
       if ($agents !== []) {
          try {
-            $client->getAgentCves((string)$agents[0]['sentinelone_id']);
+            $firstAgentCves = $client->getAgentCves((string)$agents[0]['sentinelone_id']);
          } catch (\Throwable $probe) {
-            $msg = 'Endpoint /threats/cve indisponivel (verifique plano/permissoes): ' . $probe->getMessage();
-            Log::record('synccves', 'error', $msg, 0);
+            $probeMsg = $probe->getMessage();
+            $is404    = str_contains($probeMsg, 'HTTP 404') || str_contains($probeMsg, 'Erro HTTP 404');
+
+            if ($is404) {
+               $msg = 'Endpoint /threats/cve retornou 404 — o recurso Vulnerability Management '
+                  . 'pode nao estar disponivel no seu plano SentinelOne. '
+                  . 'Desative "Sincronizar CVEs" na configuracao para remover este aviso.';
+               Log::record('synccves', 'warning', $msg, 0);
+            } else {
+               $msg = 'Endpoint /threats/cve indisponivel (verifique plano/permissoes): ' . $probeMsg;
+               Log::record('synccves', 'error', $msg, 0);
+            }
+
             return ['processed' => 0, 'cves' => 0, 'error' => $msg];
          }
       }
 
-      foreach ($agents as $agent) {
+      foreach ($agents as $i => $agent) {
          try {
-            $cves = $client->getAgentCves((string)$agent['sentinelone_id']);
+            $cves = ($i === 0 && $firstAgentCves !== null)
+               ? $firstAgentCves
+               : $client->getAgentCves((string)$agent['sentinelone_id']);
             self::upsertCvesForAgent((int)$agent['id'], $cves);
             $totalCves += count($cves);
          } catch (\Throwable $error) {
@@ -668,6 +685,21 @@ class Sync
          }
       }
 
+      // Filtro de data de corte: aplica quando nao ha cursor incremental ativo.
+      $syncDateFrom = trim((string)($config['sync_date_from'] ?? ''));
+      if ($syncDateFrom !== '' && !isset($params['updatedAt__gt'])) {
+         $ts = strtotime($syncDateFrom);
+         if ($ts !== false) {
+            $params['updatedAt__gt'] = gmdate('Y-m-d\TH:i:s.000\Z', $ts);
+         }
+      }
+
+      // Filtro de agentes inativos: exclui agentes sem contato ha mais de N dias.
+      $inactiveDays = (int)($config['agent_inactive_days'] ?? 0);
+      if ($inactiveDays > 0) {
+         $params['lastActiveDate__gt'] = gmdate('Y-m-d\TH:i:s.000\Z', time() - ($inactiveDays * 86400));
+      }
+
       $agents = $client->getAgents($params, (int)$config['max_pages']);
 
       $created = 0;
@@ -713,6 +745,15 @@ class Sync
          }
       }
 
+      // Filtro de data de corte: aplica apenas ameacas criadas/atualizadas desde a data configurada.
+      $syncDateFrom = trim((string)($config['sync_date_from'] ?? ''));
+      if ($syncDateFrom !== '' && !isset($params['updatedAt__gt'])) {
+         $ts = strtotime($syncDateFrom);
+         if ($ts !== false) {
+            $params['createdAt__gt'] = gmdate('Y-m-d\TH:i:s.000\Z', $ts);
+         }
+      }
+
       $threats = $client->getThreats($params, (int)$config['max_pages']);
 
       $created = 0;
@@ -753,6 +794,45 @@ class Sync
       }
    }
 
+   public static function cronPurgelogs(?\CronTask $task = null): int
+   {
+      try {
+         $deleted = self::purgeLogs();
+
+         if ($task !== null) {
+            $task->addVolume($deleted);
+         }
+
+         return 1;
+      } catch (\Throwable $error) {
+         Log::record('purgelogs', 'error', $error->getMessage());
+         return 0;
+      }
+   }
+
+   private static function purgeLogs(): int
+   {
+      global $DB;
+
+      $config = Config::getConfig();
+      $days = max(30, (int)($config['log_retention_days'] ?? 90));
+      $cutoff = date('Y-m-d H:i:s', strtotime("-{$days} days"));
+
+      $table = Log::getTable();
+      if (!$DB->tableExists($table)) {
+         return 0;
+      }
+
+      $DB->delete($table, ['date_creation' => ['<', $cutoff]]);
+      $deleted = (int)$DB->affectedRows();
+
+      if ($deleted > 0) {
+         Log::record('purgelogs', 'ok', "Logs com mais de {$days} dias removidos: {$deleted} registros.", $deleted);
+      }
+
+      return $deleted;
+   }
+
    public static function sendWeeklyReport(): int
    {
       global $DB;
@@ -768,74 +848,9 @@ class Sync
          return 0;
       }
 
-      $s = self::stats();
-      $cveStats    = Cve::getGlobalStats();
-      $cvesBySev   = $cveStats['by_severity'] ?? [];
-      $rogues      = $DB->tableExists(RogueDevice::getTable()) ? RogueDevice::countTotal() : 0;
-
-      $weekAgo = date('Y-m-d H:i:s', strtotime('-7 days'));
-      $newThreats = 0;
-      foreach ($DB->request(['COUNT' => 'cpt', 'FROM' => Threat::getTable(), 'WHERE' => ['detected_at' => ['>', $weekAgo]]]) as $r) {
-         $newThreats = (int)($r['cpt'] ?? 0);
-      }
-
-      $week = date('d/m/Y', strtotime('-7 days')) . ' – ' . date('d/m/Y');
-      $subject = '[SentinelOne] Relatório operacional – ' . $week;
-
-      $sectionStyle = 'margin:24px 0 8px;padding:0;font-size:15px;font-weight:700;color:#2d1f6e;border-bottom:2px solid #6b2cf5';
-      $thStyle  = 'padding:6px 12px;text-align:left;background:#f3f0ff;color:#2d1f6e;font-size:12px;text-transform:uppercase;letter-spacing:.5px';
-      $tdStyle  = 'padding:6px 12px;border-bottom:1px solid #eee;font-size:13px';
-      $valStyle = 'font-weight:700;font-size:16px;color:#2d1f6e';
-
-      $body = <<<HTML
-      <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;background:#fff;border:1px solid #e3e1ee;border-radius:8px;overflow:hidden">
-        <div style="background:#2d1f6e;padding:24px 32px;text-align:center">
-          <h1 style="color:#fff;margin:0;font-size:22px">SentinelOne</h1>
-          <p style="color:#c4b8f5;margin:4px 0 0;font-size:13px">Relatório executivo semanal &bull; {$week}</p>
-        </div>
-        <div style="padding:24px 32px">
-
-          <p style="{$sectionStyle}">Agentes</p>
-          <table style="width:100%;border-collapse:collapse">
-            <tr><th style="{$thStyle}">Métrica</th><th style="{$thStyle}">Valor</th></tr>
-            <tr><td style="{$tdStyle}">Total de agentes</td><td style="{$tdStyle} {$valStyle}">{$s['agents_total']}</td></tr>
-            <tr><td style="{$tdStyle}">Online</td><td style="{$tdStyle}">{$s['agents_online']}</td></tr>
-            <tr><td style="{$tdStyle}">Offline</td><td style="{$tdStyle}">{$s['agents_offline']}</td></tr>
-            <tr><td style="{$tdStyle}">Infectados</td><td style="{$tdStyle} color:#dc3545">{$s['agents_infected']}</td></tr>
-            <tr><td style="{$tdStyle}">Desatualizados</td><td style="{$tdStyle}">{$s['agents_outdated']}</td></tr>
-            <tr><td style="{$tdStyle}">Em quarentena</td><td style="{$tdStyle}">{$s['agents_quarantined']}</td></tr>
-            <tr><td style="{$tdStyle}">Sem vínculo GLPI</td><td style="{$tdStyle}">{$s['agents_unlinked']}</td></tr>
-          </table>
-
-          <p style="{$sectionStyle}">Ameaças</p>
-          <table style="width:100%;border-collapse:collapse">
-            <tr><th style="{$thStyle}">Métrica</th><th style="{$thStyle}">Valor</th></tr>
-            <tr><td style="{$tdStyle}">Total sincronizadas</td><td style="{$tdStyle} {$valStyle}">{$s['threats_total']}</td></tr>
-            <tr><td style="{$tdStyle}">Novas nos últimos 7 dias</td><td style="{$tdStyle} color:#dc3545">{$newThreats}</td></tr>
-            <tr><td style="{$tdStyle}">Sem ticket</td><td style="{$tdStyle}">{$s['threats_no_ticket']}</td></tr>
-          </table>
-
-          <p style="{$sectionStyle}">CVEs</p>
-          <table style="width:100%;border-collapse:collapse">
-            <tr><th style="{$thStyle}">Severidade</th><th style="{$thStyle}">Quantidade</th></tr>
-            <tr><td style="{$tdStyle}">Total</td><td style="{$tdStyle} {$valStyle}">{$cveStats['total']}</td></tr>
-            <tr><td style="{$tdStyle}">Críticos</td><td style="{$tdStyle} color:#dc3545">{$cvesBySev['CRITICAL']}</td></tr>
-            <tr><td style="{$tdStyle}">Altos</td><td style="{$tdStyle}">{$cvesBySev['HIGH']}</td></tr>
-            <tr><td style="{$tdStyle}">Médios</td><td style="{$tdStyle}">{$cvesBySev['MEDIUM']}</td></tr>
-          </table>
-
-          <p style="{$sectionStyle}">Ranger / Rogues</p>
-          <table style="width:100%;border-collapse:collapse">
-            <tr><th style="{$thStyle}">Métrica</th><th style="{$thStyle}">Valor</th></tr>
-            <tr><td style="{$tdStyle}">Dispositivos sem agente</td><td style="{$tdStyle} {$valStyle}">{$rogues}</td></tr>
-          </table>
-
-        </div>
-        <div style="background:#f3f0ff;padding:12px 32px;font-size:11px;color:#6b7280;text-align:center">
-          Gerado automaticamente pelo plugin SentinelOne para GLPI &bull; {$week}
-        </div>
-      </div>
-      HTML;
+      $period  = date('d/m/Y', strtotime('-7 days')) . ' – ' . date('d/m/Y');
+      $subject = '[SentinelOne] Relatório Executivo de Segurança – ' . $period;
+      $body    = self::buildExecutiveReportHtml(7, $period);
 
       $now  = date('Y-m-d H:i:s');
       $sent = 0;
@@ -856,7 +871,7 @@ class Sync
             'replytoname'               => '',
             'headers'                   => '',
             'body_html'                 => $body,
-            'body_text'                 => strip_tags(str_replace(['</tr>', '</p>'], ["\n", "\n"], $body)),
+            'body_text'                 => strip_tags(str_replace(['</tr>', '</td>', '</p>'], ["\n", "\t", "\n"], $body)),
             'date_creation'             => $now,
             'date_mod'                  => $now,
             'sent_try'                  => 0,
@@ -866,12 +881,184 @@ class Sync
       }
 
       Log::record('reportweekly', 'ok', "Relatorio semanal enfileirado para {$sent} destinatario(s).", $sent);
-
       return $sent;
+   }
+
+   public static function buildExecutiveReportHtml(int $days = 7, string $periodLabel = ''): string
+   {
+      global $DB;
+
+      $s         = self::stats();
+      $cveStats  = Cve::getGlobalStats();
+      $cvesBySev = $cveStats['by_severity'] ?? [];
+
+      $cutoff     = date('Y-m-d H:i:s', strtotime("-{$days} days"));
+      $newThreats = 0;
+      foreach ($DB->request([
+         'COUNT' => 'cpt',
+         'FROM'  => Threat::getTable(),
+         'WHERE' => ['detected_at' => ['>=', $cutoff]],
+      ]) as $r) {
+         $newThreats = (int)($r['cpt'] ?? 0);
+      }
+
+      $trend = self::getThreatsPerDay(min($days, 30));
+
+      // Protection Index: coverage % minus risk penalties
+      $covered     = (int)($s['agents_total'] ?? 0);
+      $unprotected = (int)($s['computers_unprotected'] ?? 0);
+      $total       = $covered + $unprotected;
+      $coveragePct = $total > 0 ? ($covered / $total * 100) : 0;
+      $penalty     = min(20, (int)($s['agents_infected'] ?? 0) * 3)
+                   + min(10, (int)($s['agents_outdated'] ?? 0) * 0.5)
+                   + min(5,  (int)($s['agents_offline']  ?? 0) * 0.1);
+      $idx         = max(0, min(100, (int)round($coveragePct - $penalty)));
+
+      [$idxColor, $idxLabel, $idxBg] = match(true) {
+         $idx >= 90 => ['#16a34a', 'Proteção em nível excelente',                   '#f0fdf4'],
+         $idx >= 75 => ['#2563eb', 'Proteção em nível satisfatório',                '#eff6ff'],
+         $idx >= 60 => ['#d97706', 'Proteção requer atenção',                       '#fffbeb'],
+         default    => ['#dc2626', 'Proteção crítica — ação imediata necessária',   '#fef2f2'],
+      };
+
+      // Bar chart (inline table, email-safe)
+      $dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+      $maxCount = max(1, ...array_values($trend));
+      $barsHtml = '';
+      foreach ($trend as $date => $count) {
+         $lbl = $dayNames[(int)date('w', strtotime($date))];
+         $h   = (int)max(4, round($count / $maxCount * 56));
+         $bg  = match(true) {
+            $count === 0 => '#ddd6fc',
+            $count <= 2  => '#a78bfa',
+            $count <= 5  => '#7c3aed',
+            default      => '#3d0fa0',
+         };
+         $barsHtml .= '<td style="text-align:center;vertical-align:bottom;padding:0 2px">'
+            . '<table cellpadding="0" cellspacing="0" style="margin:0 auto"><tr>'
+            . '<td bgcolor="' . $bg . '" width="22" height="' . $h . '" style="background:' . $bg . ';border-radius:3px 3px 0 0"></td>'
+            . '</tr></table>'
+            . '<div style="font-size:9px;color:#6b7280;margin-top:3px;font-family:Arial,sans-serif">' . $lbl . '</div>'
+            . '<div style="font-size:10px;font-weight:700;color:#2d1f6e;font-family:Arial,sans-serif">' . $count . '</div>'
+            . '</td>';
+      }
+
+      // Devices requiring attention
+      $attHtml  = '';
+      $infected = array_slice($s['attention_agents'] ?? [], 0, 5);
+      if (empty($infected)) {
+         $attHtml = '<tr><td colspan="2" style="padding:14px;text-align:center;color:#16a34a;font-size:13px;font-family:Arial,sans-serif">'
+            . '&#10003; Nenhum dispositivo com ameaça ativa neste período</td></tr>';
+      } else {
+         foreach ($infected as $ag) {
+            $host    = htmlspecialchars((string)($ag['computer_name'] ?? $ag['hostname'] ?? '—'));
+            $attHtml .= '<tr>'
+               . '<td style="padding:9px 14px;font-size:12px;color:#2d1f6e;border-bottom:1px solid #ede9fb;font-family:Arial,sans-serif">'
+               . '<span style="display:inline-block;width:7px;height:7px;background:#ef4444;border-radius:50%;margin-right:8px"></span>' . $host . '</td>'
+               . '<td style="padding:9px 14px;font-size:11px;color:#dc2626;font-weight:600;border-bottom:1px solid #ede9fb;font-family:Arial,sans-serif">Ameaça ativa</td>'
+               . '</tr>';
+         }
+      }
+
+      // Numeric values used in HTML
+      $pct          = $total > 0 ? (int)round($covered / $total * 100) : 0;
+      $pw           = min(100, $idx);
+      $pr           = 100 - $pw;
+      $period       = $periodLabel ?: date('d/m/Y', strtotime("-{$days} days")) . ' – ' . date('d/m/Y');
+      $genAt        = date('d/m/Y \à\s H:i');
+      $nextRep      = date('d/m/Y', strtotime('+7 days'));
+      $agTotal      = (int)($s['agents_total']    ?? 0);
+      $agInfected   = (int)($s['agents_infected'] ?? 0);
+      $agOutdated   = (int)($s['agents_outdated'] ?? 0);
+      $thrTotal     = (int)($s['threats_total']   ?? 0);
+      $thrNoTicket  = (int)($s['threats_no_ticket'] ?? 0);
+      $cveTotal     = (int)($cveStats['total']    ?? 0);
+      $cveCritical  = (int)($cvesBySev['CRITICAL'] ?? 0);
+      $cveHigh      = (int)($cvesBySev['HIGH']    ?? 0);
+
+      $h = '<!DOCTYPE html><html><head><meta charset="UTF-8"></head>'
+         . '<body style="margin:0;padding:0;background:#f0eeff;font-family:Arial,sans-serif">'
+         . '<table width="100%" cellpadding="0" cellspacing="0" bgcolor="#f0eeff" style="background:#f0eeff;padding:24px 0">'
+         . '<tr><td align="center">'
+         . '<table width="600" cellpadding="0" cellspacing="0" style="border-radius:12px;overflow:hidden;border:1px solid #e0d9f8">'
+
+         // HEADER
+         . '<tr><td bgcolor="#2d1f6e" style="background:#2d1f6e;padding:28px 32px;text-align:center">'
+         . '<div style="font-size:38px;font-weight:900;color:#fff;letter-spacing:-2px;font-family:Arial,sans-serif">S1</div>'
+         . '<div style="color:#9d85e8;font-size:10px;letter-spacing:5px;text-transform:uppercase;margin:2px 0 10px;font-family:Arial,sans-serif">SentinelOne</div>'
+         . '<div style="color:#fff;font-size:20px;font-weight:700;margin:0 0 6px;font-family:Arial,sans-serif">Relatório Executivo de Segurança</div>'
+         . '<div style="color:#c4b8f5;font-size:12px;font-family:Arial,sans-serif">Período: ' . $period . '</div>'
+         . '</td></tr>'
+
+         // PROTECTION INDEX
+         . '<tr><td bgcolor="' . $idxBg . '" style="background:' . $idxBg . ';padding:28px 32px;text-align:center">'
+         . '<div style="font-size:10px;letter-spacing:4px;text-transform:uppercase;color:#6b7280;margin-bottom:8px;font-family:Arial,sans-serif">Índice de Proteção</div>'
+         . '<div style="font-size:62px;font-weight:900;color:' . $idxColor . ';line-height:1.1;font-family:Arial,sans-serif">' . $idx . '%</div>'
+         . '<div style="font-size:13px;color:#4b5563;margin:8px 0 18px;font-family:Arial,sans-serif">' . $idxLabel . '</div>'
+         . '<table width="320" cellpadding="0" cellspacing="0" style="margin:0 auto;border-radius:8px;overflow:hidden"><tr>'
+         . '<td width="' . $pw . '%" bgcolor="' . $idxColor . '" height="8" style="background:' . $idxColor . ';height:8px"></td>'
+         . '<td width="' . $pr . '%" bgcolor="#e5e7eb" height="8" style="background:#e5e7eb;height:8px"></td>'
+         . '</tr></table>'
+         . '</td></tr>'
+
+         // KPI CARDS
+         . '<tr><td bgcolor="#ffffff" style="background:#fff;padding:20px 32px 14px">'
+         . '<table width="100%" cellpadding="0" cellspacing="0"><tr>'
+         . '<td width="48%" bgcolor="#f3f0ff" style="background:#f3f0ff;border-radius:10px;padding:16px 18px;vertical-align:top">'
+         . '<div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#7c3aed;margin-bottom:6px;font-family:Arial,sans-serif">Cobertura de Endpoints</div>'
+         . '<div style="font-size:30px;font-weight:900;color:#2d1f6e;line-height:1;font-family:Arial,sans-serif">' . $agTotal . '<span style="font-size:14px;font-weight:400;color:#9ca3af"> /' . $total . '</span></div>'
+         . '<div style="font-size:11px;color:#6b7280;margin-top:5px;font-family:Arial,sans-serif">' . $pct . '% do parque protegido</div>'
+         . '</td><td width="4%"></td>'
+         . '<td width="48%" style="border:2px solid #fee2e2;background:#fff5f5;border-radius:10px;padding:16px 18px;vertical-align:top">'
+         . '<div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#ef4444;margin-bottom:6px;font-family:Arial,sans-serif">Ameaças Detectadas</div>'
+         . '<div style="font-size:30px;font-weight:900;color:#dc2626;line-height:1;font-family:Arial,sans-serif">' . $newThreats . '<span style="font-size:14px;font-weight:400;color:#9ca3af"> no período</span></div>'
+         . '<div style="font-size:11px;color:#6b7280;margin-top:5px;font-family:Arial,sans-serif">Acumulado total: ' . $thrTotal . ' · Sem ticket: ' . $thrNoTicket . '</div>'
+         . '</td></tr>'
+         . '<tr><td colspan="3" height="10"></td></tr><tr>'
+         . '<td width="48%" style="border:2px solid #fef3c7;background:#fffbeb;border-radius:10px;padding:16px 18px;vertical-align:top">'
+         . '<div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#d97706;margin-bottom:6px;font-family:Arial,sans-serif">Endpoints em Risco Ativo</div>'
+         . '<div style="font-size:30px;font-weight:900;color:#92400e;line-height:1;font-family:Arial,sans-serif">' . $agInfected . '<span style="font-size:14px;font-weight:400;color:#9ca3af"> infectados</span></div>'
+         . '<div style="font-size:11px;color:#6b7280;margin-top:5px;font-family:Arial,sans-serif">Desatualizados: ' . $agOutdated . '  &nbsp;·&nbsp;  Sem S1: ' . $unprotected . '</div>'
+         . '</td><td width="4%"></td>'
+         . '<td width="48%" style="border:2px solid #bbf7d0;background:#f0fdf4;border-radius:10px;padding:16px 18px;vertical-align:top">'
+         . '<div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#16a34a;margin-bottom:6px;font-family:Arial,sans-serif">Vulnerabilidades CVE</div>'
+         . '<div style="font-size:30px;font-weight:900;color:#166534;line-height:1;font-family:Arial,sans-serif">' . $cveTotal . '<span style="font-size:14px;font-weight:400;color:#9ca3af"> total</span></div>'
+         . '<div style="font-size:11px;color:#6b7280;margin-top:5px;font-family:Arial,sans-serif">Críticas: ' . $cveCritical . '  &nbsp;·&nbsp;  Altas: ' . $cveHigh . '</div>'
+         . '</td></tr></table>'
+         . '</td></tr>'
+
+         // TREND
+         . '<tr><td bgcolor="#ffffff" style="background:#fff;padding:4px 32px 22px">'
+         . '<div style="font-size:10px;letter-spacing:4px;text-transform:uppercase;color:#6b7280;margin-bottom:10px;font-family:Arial,sans-serif">Tendência de Ameaças (' . $days . ' dias)</div>'
+         . '<table width="100%" cellpadding="0" cellspacing="0" bgcolor="#f8f6ff" style="background:#f8f6ff;border-radius:10px;padding:14px 8px">'
+         . '<tr bgcolor="#f8f6ff"><td style="padding:14px 8px">'
+         . '<table width="100%" cellpadding="0" cellspacing="0"><tr>' . $barsHtml . '</tr></table>'
+         . '</td></tr></table>'
+         . '</td></tr>'
+
+         // ATTENTION LIST
+         . '<tr><td bgcolor="#ffffff" style="background:#fff;padding:4px 32px 24px">'
+         . '<div style="font-size:10px;letter-spacing:4px;text-transform:uppercase;color:#6b7280;margin-bottom:10px;font-family:Arial,sans-serif">Dispositivos Requerendo Atenção</div>'
+         . '<table width="100%" cellpadding="0" cellspacing="0" bgcolor="#f8f6ff" style="background:#f8f6ff;border-radius:10px;overflow:hidden">'
+         . $attHtml
+         . '</table></td></tr>'
+
+         // FOOTER
+         . '<tr><td bgcolor="#2d1f6e" style="background:#2d1f6e;padding:16px 32px;text-align:center">'
+         . '<div style="font-size:11px;color:#c4b8f5;font-family:Arial,sans-serif">Gerado automaticamente em ' . $genAt . '</div>'
+         . '<div style="font-size:11px;color:#7c6db5;margin-top:3px;font-family:Arial,sans-serif">Plugin SentinelOne para GLPI &bull; Próximo relatório: ' . $nextRep . '</div>'
+         . '</td></tr>'
+
+         . '</table></td></tr></table>'
+         . '</body></html>';
+
+      return $h;
    }
 
    public static function stats(): array
    {
+      $latestVersion = self::getCommonAgentVersion();
+
       return [
          'agents_total'      => self::countRows(Agent::getTable()),
          'agents_online'     => self::countRows(Agent::getTable(), ['is_online' => 1]),
@@ -890,8 +1077,8 @@ class Sync
          'offline_agents'    => self::getRows(Agent::getTable(), ['is_online' => 0], ['last_active_at DESC', 'id DESC'], 6),
          'threats_by_classification' => self::getThreatsGroupedBy('classification', 5),
          'agents_quarantined'       => self::countRows(Agent::getTable(), ['is_network_quarantine' => 1]),
-         'latest_agent_version'     => self::getCommonAgentVersion(),
-         'agents_outdated'          => self::countOutdatedAgents(),
+         'latest_agent_version'     => $latestVersion,
+         'agents_outdated'          => self::countOutdatedAgents($latestVersion),
          'groups_total'             => self::countRows(Group::getTable()),
          'groups_detect'            => self::countRows(Group::getTable(), ['policy_mode' => 'detect']),
          'groups_none'              => self::countRows(Group::getTable(), ['policy_mode' => 'none']),
@@ -933,11 +1120,11 @@ class Sync
       return self::countOutdatedAgents();
    }
 
-   private static function countOutdatedAgents(): int
+   private static function countOutdatedAgents(string $knownLatest = ''): int
    {
       global $DB;
 
-      $latest = self::getCommonAgentVersion();
+      $latest = $knownLatest !== '' ? $knownLatest : self::getCommonAgentVersion();
       if ($latest === '' || !$DB->tableExists(Agent::getTable())) {
          return 0;
       }
@@ -1150,8 +1337,8 @@ class Sync
 
       $data = self::normalizeThreat($raw);
       $existingId = self::findExistingId(Threat::getTable(), 'sentinelone_threat_id', $data['sentinelone_threat_id']);
-      $existing = $existingId !== null ? self::getRowById(Threat::getTable(), $existingId) : null;
-      $agent = self::findAgentBySentineloneId((string)$data['sentinelone_agent_id']);
+      $existing   = $existingId !== null ? self::getRowById(Threat::getTable(), $existingId) : null;
+      $agent      = self::findAgentBySentineloneId((string)$data['sentinelone_agent_id']);
 
       if ($agent !== null) {
          $data['plugin_sentinelone_agents_id'] = (int)$agent['id'];
@@ -1161,31 +1348,81 @@ class Sync
 
       $ticketCreated = false;
       $ticketClosed  = false;
+      $isNewThreat   = ($existing === null);
+      $oldStatus     = (string)($existing['status'] ?? '');
+      $newStatus     = (string)($data['status'] ?? '');
+      $statusChanged = $oldStatus !== '' && $newStatus !== '' && $oldStatus !== $newStatus;
 
-      if ($existing !== null && !empty($existing['tickets_id'])) {
-         // Preserva o ticket apenas se ainda nao foi fechado; se fechado, permite abrir novo
-         if (!self::isTicketClosed((int)$existing['tickets_id'])) {
-            $data['tickets_id'] = (int)$existing['tickets_id'];
+      if ((string)$config['create_tickets'] === '1') {
+
+         // 1. Preserva ticket da ameaca existente se ainda estiver aberto
+         if (!$isNewThreat && !empty($existing['tickets_id'])) {
+            if (!self::isTicketClosed((int)$existing['tickets_id'])) {
+               $data['tickets_id'] = (int)$existing['tickets_id'];
+            }
+         }
+
+         // 2. Sem ticket ainda: verifica se o endpoint ja tem um ticket ativo de outra ameaca
+         //    (cobre tanto ameacas novas quanto ameacas reativadas cujo ticket anterior fechou)
+         if (empty($data['tickets_id']) && $agent !== null && self::shouldCreateTicket($data, $config)) {
+            $activeTicketId = self::findActiveEndpointTicket((int)$agent['id']);
+
+            if ($activeTicketId !== null) {
+               $data['tickets_id'] = $activeTicketId;
+               // Adiciona followup apenas para ameacas genuinamente novas (nao reativacoes)
+               if ($isNewThreat) {
+                  try {
+                     TicketManager::addNewThreatFollowup($activeTicketId, $data, $agent, $config);
+                  } catch (\Throwable $error) {
+                     Log::record('syncthreats', 'error', 'Falha ao adicionar followup de nova ameaca: ' . $error->getMessage());
+                  }
+               }
+            }
+         }
+
+         // 3. Ainda sem ticket: primeira ameaca ativa no endpoint, cria o ticket
+         if (empty($data['tickets_id']) && self::shouldCreateTicket($data, $config)) {
+            $data['tickets_id'] = TicketManager::createForThreat($data, $agent, $config);
+            $ticketCreated = true;
          }
       }
 
-      if ((string)$config['create_tickets'] === '1' && empty($data['tickets_id']) && self::shouldCreateTicket($data, $config)) {
-         $data['tickets_id'] = TicketManager::createForThreat($data, $agent, $config);
-         $ticketCreated = true;
+      // Mudanca de status intermediaria (ex.: active → blocked) → followup informativo
+      if (!empty($data['tickets_id']) && $statusChanged && !self::isResolvedStatus($newStatus)) {
+         try {
+            TicketManager::addStatusChangeFollowup((int)$data['tickets_id'], $data, $oldStatus, $newStatus);
+         } catch (\Throwable $error) {
+            Log::record('syncthreats', 'error', 'Falha ao adicionar followup de mudanca de status: ' . $error->getMessage());
+         }
       }
 
-      // Fecha o ticket quando a ameaca passa para resolvida/mitigada no SentinelOne
+      // Ameaca resolvida/mitigada no SentinelOne
       if (
          (string)($config['auto_close_tickets'] ?? '1') === '1'
          && !empty($data['tickets_id'])
-         && self::isResolvedStatus((string)($data['status'] ?? ''))
-         && !self::isResolvedStatus((string)($existing['status'] ?? ''))
+         && self::isResolvedStatus($newStatus)
+         && !self::isResolvedStatus($oldStatus)
       ) {
-         try {
-            TicketManager::closeForThreat((int)$data['tickets_id'], $data);
-            $ticketClosed = true;
-         } catch (\Throwable $error) {
-            Log::record('syncthreats', 'error', 'Falha ao fechar ticket automaticamente: ' . $error->getMessage());
+         $agentId    = $agent !== null ? (int)$agent['id'] : null;
+         $allResolved = $agentId !== null
+            ? self::allEndpointThreatsResolved($agentId, (string)$data['sentinelone_threat_id'], $newStatus)
+            : true;
+
+         if ($allResolved) {
+            // Todas as ameacas do endpoint resolvidas → fecha o ticket
+            try {
+               TicketManager::closeForThreat((int)$data['tickets_id'], $data);
+               $ticketClosed = true;
+            } catch (\Throwable $error) {
+               Log::record('syncthreats', 'error', 'Falha ao fechar ticket automaticamente: ' . $error->getMessage());
+            }
+         } else {
+            // Outras ameacas ainda ativas → adiciona nota de resolucao parcial; ticket permanece aberto
+            try {
+               TicketManager::addThreatResolvedFollowup((int)$data['tickets_id'], $data);
+            } catch (\Throwable $error) {
+               Log::record('syncthreats', 'error', 'Falha ao adicionar followup de resolucao parcial: ' . $error->getMessage());
+            }
          }
       }
 
@@ -1270,6 +1507,7 @@ class Sync
       }
 
       $now = date('Y-m-d H:i:s');
+      $manufacturerCache = [];
 
       foreach ($apps as $app) {
          $name = trim((string)($app['name'] ?? ''));
@@ -1283,11 +1521,14 @@ class Sync
 
          $manufacturerId = 0;
          if ($publisher !== '') {
-            $manufacturerId = self::findOrCreateRecord('glpi_manufacturers', ['name' => $publisher], [
-               'name'          => $publisher,
-               'date_creation' => $now,
-               'date_mod'      => $now,
-            ]);
+            if (!isset($manufacturerCache[$publisher])) {
+               $manufacturerCache[$publisher] = self::findOrCreateRecord('glpi_manufacturers', ['name' => $publisher], [
+                  'name'          => $publisher,
+                  'date_creation' => $now,
+                  'date_mod'      => $now,
+               ]);
+            }
+            $manufacturerId = $manufacturerCache[$publisher];
          }
 
          $softwareWhere = ['name' => $name, 'is_deleted' => 0];
@@ -1370,23 +1611,25 @@ class Sync
          return [];
       }
 
-      $counts = [];
-      $limit = max(1, min(20, $limit));
+      $limit  = max(1, min(20, $limit));
+      $table  = $DB->quoteName(Threat::getTable());
+      $result = $DB->doQuery(
+         "SELECT `{$field}` AS val, COUNT(*) AS cnt"
+         . " FROM {$table}"
+         . " WHERE `{$field}` IS NOT NULL AND `{$field}` != ''"
+         . " GROUP BY `{$field}` ORDER BY cnt DESC LIMIT {$limit}"
+      );
 
-      foreach ($DB->request([
-         'SELECT' => [$field],
-         'FROM'   => Threat::getTable(),
-         'WHERE'  => ['NOT' => [$field => null]],
-      ]) as $row) {
-         $val = trim((string)($row[$field] ?? ''));
-         if ($val !== '') {
-            $counts[$val] = ($counts[$val] ?? 0) + 1;
-         }
+      if (!$result) {
+         return [];
       }
 
-      arsort($counts);
+      $counts = [];
+      while ($row = $result->fetch_assoc()) {
+         $counts[(string)$row['val']] = (int)$row['cnt'];
+      }
 
-      return array_slice($counts, 0, $limit, true);
+      return $counts;
    }
 
    private static function upsertActivity(array $raw): bool
@@ -1592,6 +1835,71 @@ class Sync
 
       return self::listAllows($statusFilter, $status)
          && self::listAllows($classificationFilter, $classification);
+   }
+
+   /**
+    * Retorna o ID do ticket aberto de ameaca SentinelOne para o endpoint (agente),
+    * ou null se nao houver nenhum. Usa a tabela de ameacas como fonte de verdade
+    * para evitar conflito com o campo tickets_id de saude do agente.
+    */
+   private static function findActiveEndpointTicket(int $agentId): ?int
+   {
+      global $DB;
+
+      $table  = $DB->quoteName(Threat::getTable());
+      $result = $DB->doQuery(
+         "SELECT `tickets_id` FROM {$table}"
+         . " WHERE `plugin_sentinelone_agents_id` = " . $agentId
+         . " AND `tickets_id` IS NOT NULL"
+         . " AND (`status` IS NULL OR `status` NOT IN"
+         . " ('mitigated','resolved','benign','false_positive','marked_as_benign'))"
+         . " LIMIT 1"
+      );
+
+      if (!$result) {
+         return null;
+      }
+
+      $row = $result->fetch_assoc();
+      if (!$row || empty($row['tickets_id'])) {
+         return null;
+      }
+
+      $ticketId = (int)$row['tickets_id'];
+
+      return self::isTicketClosed($ticketId) ? null : $ticketId;
+   }
+
+   /**
+    * Verifica se todas as ameacas com ticket vinculado para este agente estao resolvidas.
+    * Recebe a ameaca atual (ainda nao salva) via $currentThreatId/$currentNewStatus
+    * para simular corretamente o estado pos-save.
+    */
+   private static function allEndpointThreatsResolved(int $agentId, string $currentThreatId, string $currentNewStatus): bool
+   {
+      global $DB;
+
+      $table  = $DB->quoteName(Threat::getTable());
+      $result = $DB->doQuery(
+         "SELECT `sentinelone_threat_id`, `status` FROM {$table}"
+         . " WHERE `plugin_sentinelone_agents_id` = " . $agentId
+         . " AND `tickets_id` IS NOT NULL"
+      );
+
+      if (!$result) {
+         return true;
+      }
+
+      while ($row = $result->fetch_assoc()) {
+         $threatId = (string)$row['sentinelone_threat_id'];
+         $status   = $threatId === $currentThreatId ? $currentNewStatus : (string)($row['status'] ?? '');
+
+         if (!self::isResolvedStatus($status)) {
+            return false;
+         }
+      }
+
+      return true;
    }
 
    private static function isResolvedStatus(string $status): bool
@@ -1841,13 +2149,12 @@ class Sync
       foreach ($DB->request([
          'SELECT' => ['detected_at'],
          'FROM'   => Threat::getTable(),
-         'WHERE'  => ['NOT' => ['detected_at' => null]],
+         'WHERE'  => [
+            'NOT'         => ['detected_at' => null],
+            'detected_at' => ['>=', $oldest],
+         ],
       ]) as $row) {
-         $dt = (string)($row['detected_at'] ?? '');
-         if ($dt < $oldest) {
-            continue;
-         }
-         $day = substr($dt, 0, 10);
+         $day = substr((string)($row['detected_at'] ?? ''), 0, 10);
          if (array_key_exists($day, $result)) {
             $result[$day]++;
          }

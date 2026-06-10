@@ -206,7 +206,7 @@ function plugin_sentinelone_install(): bool
    SentineloneConfig::installDefaults();
 
    // Insere novos campos de configuracao para instalacoes existentes.
-   $existingConfig = \Config::getConfigurationValues(SentineloneConfig::CONTEXT, ['sync_activities', 'site_entity_map', 'ticket_group_id', 'sync_software', 'sync_software_limit', 'sync_cves', 'sync_cves_limit', 'sync_rogues', 'sync_incremental', 'report_recipients']);
+   $existingConfig = \Config::getConfigurationValues(SentineloneConfig::CONTEXT, ['sync_activities', 'site_entity_map', 'ticket_group_id', 'sync_software', 'sync_software_limit', 'sync_cves', 'sync_cves_limit', 'sync_rogues', 'sync_incremental', 'report_recipients', 'sync_date_from', 'agent_inactive_days', 'log_retention_days']);
    $newConfigDefaults = [];
    if (!isset($existingConfig['sync_activities'])) {
       $newConfigDefaults['sync_activities'] = '0';
@@ -246,6 +246,15 @@ function plugin_sentinelone_install(): bool
    }
    if (!isset($existingConfig['report_recipients'])) {
       $newConfigDefaults['report_recipients'] = '';
+   }
+   if (!isset($existingConfig['sync_date_from'])) {
+      $newConfigDefaults['sync_date_from'] = '';
+   }
+   if (!isset($existingConfig['agent_inactive_days'])) {
+      $newConfigDefaults['agent_inactive_days'] = '0';
+   }
+   if (!isset($existingConfig['log_retention_days'])) {
+      $newConfigDefaults['log_retention_days'] = '90';
    }
    if ($newConfigDefaults !== []) {
       \Config::setConfigurationValues(SentineloneConfig::CONTEXT, $newConfigDefaults);
@@ -309,6 +318,12 @@ function plugin_sentinelone_install(): bool
       'state'     => CronTask::STATE_DISABLE,
    ]);
 
+   CronTask::register(Sync::class, 'purgelogs', HOUR_TIMESTAMP * 24, [
+      'mode'      => CronTask::MODE_EXTERNAL,
+      'allowmode' => CronTask::MODE_INTERNAL | CronTask::MODE_EXTERNAL,
+      'state'     => CronTask::STATE_DISABLE,
+   ]);
+
    // CronTask::register() nao atualiza linhas ja existentes. Para instalacoes
    // anteriores (allowmode = EXTERNAL apenas, sem o botao "Executar"), corrige
    // o allowmode das tasks ja registradas de forma idempotente.
@@ -317,7 +332,7 @@ function plugin_sentinelone_install(): bool
       ['allowmode' => CronTask::MODE_INTERNAL | CronTask::MODE_EXTERNAL],
       [
          'itemtype' => Sync::class,
-         'name'     => ['syncagents', 'syncthreats', 'syncactivities', 'syncsoftware', 'syncgroups', 'alertoffline', 'synccves', 'syncrogues', 'reportweekly'],
+         'name'     => ['syncagents', 'syncthreats', 'syncactivities', 'syncsoftware', 'syncgroups', 'alertoffline', 'synccves', 'syncrogues', 'reportweekly', 'purgelogs'],
       ]
    );
 

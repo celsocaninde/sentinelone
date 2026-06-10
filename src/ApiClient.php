@@ -168,11 +168,42 @@ class ApiClient
          'Authorization: ' . $this->authScheme . ' ' . $this->token,
       ];
 
-      if (function_exists('curl_init')) {
-         return $this->requestWithCurl($method, $url, $headers, $body);
+      $maxRetries = 3;
+      $delay      = 1;
+      $last       = null;
+
+      for ($attempt = 0; $attempt <= $maxRetries; $attempt++) {
+         if ($attempt > 0) {
+            sleep($delay);
+            $delay = min($delay * 2, 16);
+         }
+
+         try {
+            return function_exists('curl_init')
+               ? $this->requestWithCurl($method, $url, $headers, $body)
+               : $this->requestWithStreams($method, $url, $headers, $body);
+         } catch (\RuntimeException $e) {
+            if (!self::isRetryableError($e->getMessage())) {
+               throw $e;
+            }
+            $last = $e;
+            if (str_contains($e->getMessage(), '429')) {
+               $delay = max($delay, 10);
+            }
+         }
       }
 
-      return $this->requestWithStreams($method, $url, $headers, $body);
+      throw $last;
+   }
+
+   private static function isRetryableError(string $message): bool
+   {
+      return str_contains($message, '429')
+         || str_contains($message, 'HTTP 500')
+         || str_contains($message, 'HTTP 502')
+         || str_contains($message, 'HTTP 503')
+         || str_contains($message, 'HTTP 504')
+         || str_contains($message, 'Falha HTTP SentinelOne');
    }
 
    private function collectPaginated(string $path, array $params, int $maxPages): array
@@ -187,7 +218,9 @@ class ApiClient
          }
 
          $response = $this->request('GET', $path, $params);
-         $items = array_merge($items, $this->extractItems($response));
+         foreach ($this->extractItems($response) as $item) {
+            $items[] = $item;
+         }
          $cursor = $response['pagination']['nextCursor']
             ?? $response['pagination']['next_cursor']
             ?? $response['nextCursor']
@@ -283,21 +316,40 @@ class ApiClient
    {
       $json = json_decode($raw, true);
 
-      if (!is_array($json)) {
-         throw new \RuntimeException('Resposta SentinelOne nao e JSON valido.');
+      // Checa o status HTTP antes de tentar interpretar o corpo, para que erros
+      // 4xx/5xx com resposta HTML (ex.: pagina de manutencao, rate-limit) gerem
+      // mensagens uteis em vez de "nao e JSON valido".
+      if ($status >= 400) {
+         $message = is_array($json)
+            ? ($json['errors'][0]['detail'] ?? $json['error'] ?? $json['message'] ?? 'Erro HTTP ' . $status)
+            : 'Erro HTTP ' . $status . self::rawPreview($raw);
+         throw new \RuntimeException('Erro SentinelOne: ' . $message);
       }
 
-      if ($status >= 400) {
-         $message = $json['errors'][0]['detail']
-            ?? $json['error']
-            ?? $json['message']
-            ?? 'Erro HTTP ' . $status;
-         throw new \RuntimeException('Erro SentinelOne: ' . $message);
+      if (!is_array($json)) {
+         throw new \RuntimeException(
+            'Resposta SentinelOne nao e JSON valido'
+            . ($status > 0 ? ' (HTTP ' . $status . ')' : '')
+            . self::rawPreview($raw)
+         );
       }
 
       $json['_http_status'] = $status;
 
       return $json;
+   }
+
+   /**
+    * Retorna um trecho legivel da resposta bruta para incluir nas mensagens de erro.
+    * Remove tags HTML e limita a 160 chars para nao entupir os logs.
+    */
+   private static function rawPreview(string $raw): string
+   {
+      $preview = trim(strip_tags($raw));
+      $preview = preg_replace('/\s+/', ' ', $preview) ?? $preview;
+      $preview = mb_substr($preview, 0, 160);
+
+      return $preview !== '' ? '. Resposta: ' . $preview : '';
    }
 
    private function buildUrl(string $path, array $query): string

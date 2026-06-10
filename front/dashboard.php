@@ -52,17 +52,32 @@ $renderStatusBadge = static function ($status) use ($h, $statusClass): string {
 
 $renderThreatBadge = static function ($status) use ($h): string {
    $raw = strtolower(trim((string)$status));
-   $label = trim((string)$status) !== '' ? (string)$status : __('sem status', 'sentinelone');
 
-   if (in_array($raw, ['mitigated', 'resolved', 'benign', 'false_positive', 'marked_as_benign'], true)) {
-      $cls = 's1-badge--ok';
-   } elseif ($raw === '') {
-      $cls = 's1-badge--muted';
-   } elseif (in_array($raw, ['active', 'unmitigated', 'not_mitigated', 'unresolved'], true)) {
-      $cls = 's1-badge--critical';
-   } else {
-      $cls = 's1-badge--danger';
-   }
+   static $labels = [
+      'marked_as_benign'        => 'Falso Positivo',
+      'marked_as_benign_ep'     => 'Falso Positivo (EP)',
+      'false_positive'          => 'Falso Positivo',
+      'mitigated'               => 'Mitigada',
+      'resolved'                => 'Resolvida',
+      'benign'                  => 'Benigna',
+      'active'                  => 'Ativa',
+      'unmitigated'             => 'Não Mitigada',
+      'not_mitigated'           => 'Não Mitigada',
+      'unresolved'              => 'Não Resolvida',
+      'suspicious'              => 'Suspeita',
+      'malicious'               => 'Maliciosa',
+      'undefined'               => 'Indefinida',
+      'rollback_needed'         => 'Rollback Necessário',
+      'partially_mitigated'     => 'Parcialmente Mitigada',
+   ];
+   $label = $labels[$raw] ?? (trim((string)$status) !== '' ? ucwords(str_replace('_', ' ', $raw)) : 'Sem status');
+
+   $cls = match(true) {
+      in_array($raw, ['mitigated','resolved','benign','false_positive','marked_as_benign','marked_as_benign_ep'], true) => 's1-badge--ok',
+      $raw === '' => 's1-badge--muted',
+      in_array($raw, ['active','unmitigated','not_mitigated','unresolved','malicious'], true) => 's1-badge--critical',
+      default => 's1-badge--danger',
+   };
 
    return "<span class='s1-badge {$cls}'>" . $h($label) . "</span>";
 };
@@ -107,6 +122,8 @@ echo "<a class='btn btn-outline-secondary' href='" . $h($unprotectedUrl) . "'><s
 echo "<a class='btn btn-outline-secondary' href='" . $h($threatUrl) . "'><span class='ti ti-bug'></span>" . __('Ameacas', 'sentinelone') . "</a>";
 echo "<a class='btn btn-outline-secondary' href='" . $h($roguesUrl) . "'><span class='ti ti-ghost'></span>" . __('Rogues', 'sentinelone') . "</a>";
 echo "<a class='btn btn-outline-secondary' href='" . $h($cvesUrl) . "'><span class='ti ti-shield-exclamation'></span>" . __('CVEs', 'sentinelone') . "</a>";
+$reportUrl = $rootDoc . '/plugins/sentinelone/front/report.php';
+echo "<a class='btn btn-outline-primary s1-btn-report' href='" . $h($reportUrl) . "' title='Relatório executivo com índice de proteção, KPIs e tendências'><span class='ti ti-chart-bar'></span>" . __('Relatorio', 'sentinelone') . "</a>";
 if ($consoleUrl !== '') {
    echo "<a class='btn btn-outline-secondary' href='" . $h($consoleUrl) . "' target='_blank' rel='noopener'><span class='ti ti-external-link'></span>" . __('Console', 'sentinelone') . "</a>";
 }
@@ -210,15 +227,15 @@ echo "</div>";
 
 $groupsRisky = ((int)($stats['groups_detect'] ?? 0)) + ((int)($stats['groups_none'] ?? 0));
 $cards = [
-   ['label' => __('Agentes', 'sentinelone'),        'value' => $stats['agents_total'],              'hint' => $stats['agents_online'] . ' ' . __('online', 'sentinelone'), 'mod' => 'accent'],
-   ['label' => __('Infectados', 'sentinelone'),      'value' => $stats['agents_infected'],           'hint' => __('Prioridade alta', 'sentinelone'), 'mod' => ($stats['agents_infected'] > 0 ? 'danger' : '')],
-   ['label' => __('Desatualizados', 'sentinelone'),  'value' => $stats['agents_outdated'] ?? 0,      'hint' => ($stats['latest_agent_version'] !== '' ? 'v' . $stats['latest_agent_version'] : __('Sem dados', 'sentinelone')), 'mod' => (($stats['agents_outdated'] ?? 0) > 0 ? 'danger' : '')],
-   ['label' => __('Em quarentena', 'sentinelone'),   'value' => $stats['agents_quarantined'] ?? 0,   'hint' => __('Isolados da rede', 'sentinelone'), 'mod' => (($stats['agents_quarantined'] ?? 0) > 0 ? 'danger' : 'ok')],
-   ['label' => __('Sem vinculo', 'sentinelone'),     'value' => $stats['agents_unlinked'],           'hint' => __('Aguardam inventario GLPI', 'sentinelone'), 'mod' => ''],
-   ['label' => __('Ameacas', 'sentinelone'),         'value' => $stats['threats_total'],             'hint' => __('Total sincronizado', 'sentinelone'), 'mod' => 'accent'],
-   ['label' => __('Sem ticket', 'sentinelone'),      'value' => $stats['threats_no_ticket'],         'hint' => __('Pendentes de atendimento', 'sentinelone'), 'mod' => ($stats['threats_no_ticket'] > 0 ? 'danger' : '')],
-   ['label' => __('Grupos risky', 'sentinelone'),    'value' => $groupsRisky,                        'hint' => __('Detect ou desativado', 'sentinelone'), 'mod' => ($groupsRisky > 0 ? 'danger' : 'ok')],
-   ['label' => __('Rogues', 'sentinelone'),           'value' => RogueDevice::countTotal(),            'hint' => __('Sem agente Ranger', 'sentinelone'),    'mod' => '', 'url' => $roguesUrl],
+   ['label' => __('Agentes', 'sentinelone'),        'value' => $stats['agents_total'],              'hint' => $stats['agents_online'] . ' ' . __('online', 'sentinelone'), 'mod' => 'accent',  'url' => $agentUrl],
+   ['label' => __('Infectados', 'sentinelone'),      'value' => $stats['agents_infected'],           'hint' => __('Prioridade alta', 'sentinelone'), 'mod' => ($stats['agents_infected'] > 0 ? 'danger' : ''), 'url' => $agentUrl],
+   ['label' => __('Desatualizados', 'sentinelone'),  'value' => $stats['agents_outdated'] ?? 0,      'hint' => ($stats['latest_agent_version'] !== '' ? 'v' . $stats['latest_agent_version'] : __('Sem dados', 'sentinelone')), 'mod' => (($stats['agents_outdated'] ?? 0) > 0 ? 'danger' : ''), 'url' => $agentUrl],
+   ['label' => __('Em quarentena', 'sentinelone'),   'value' => $stats['agents_quarantined'] ?? 0,   'hint' => __('Isolados da rede', 'sentinelone'), 'mod' => (($stats['agents_quarantined'] ?? 0) > 0 ? 'danger' : 'ok'), 'url' => $agentUrl],
+   ['label' => __('Sem vinculo', 'sentinelone'),     'value' => $stats['agents_unlinked'],           'hint' => __('Aguardam inventario GLPI', 'sentinelone'), 'mod' => '', 'url' => $diagnosticUrl],
+   ['label' => __('Ameacas', 'sentinelone'),         'value' => $stats['threats_total'],             'hint' => __('Total sincronizado', 'sentinelone'), 'mod' => 'accent', 'url' => $threatUrl],
+   ['label' => __('Sem ticket', 'sentinelone'),      'value' => $stats['threats_no_ticket'],         'hint' => __('Pendentes de atendimento', 'sentinelone'), 'mod' => ($stats['threats_no_ticket'] > 0 ? 'danger' : ''), 'url' => $threatUrl],
+   ['label' => __('Grupos risky', 'sentinelone'),    'value' => $groupsRisky,                        'hint' => __('Detect ou desativado', 'sentinelone'), 'mod' => ($groupsRisky > 0 ? 'danger' : 'ok'), 'url' => $rootDoc . '/plugins/sentinelone/front/dashboard.php'],
+   ['label' => __('Rogues', 'sentinelone'),          'value' => RogueDevice::countTotal(),           'hint' => __('Sem agente Ranger', 'sentinelone'),    'mod' => '', 'url' => $roguesUrl],
 ];
 
 $cveStats      = Cve::getGlobalStats();
@@ -243,45 +260,135 @@ foreach ($cards as $card) {
 }
 echo "</div>";
 
-// Historico de ameacas (ultimos 7 dias)
-$threatsPerDay = $stats['threats_per_day'] ?? [];
-if ($threatsPerDay !== []) {
-   $maxVal = max(max(array_values($threatsPerDay)), 1);
-   echo "<section class='sentinelone-panel sentinelone-panel--wide' style='margin-bottom:24px'>";
-   echo "<div class='sentinelone-panel__head'><h3>" . __('Ameacas detectadas (ultimos 7 dias)', 'sentinelone') . "</h3></div>";
-   echo "<div style='display:flex;align-items:flex-end;gap:8px;padding:16px 20px;height:100px'>";
-   foreach ($threatsPerDay as $day => $count) {
-      $pct   = (int)round(($count / $maxVal) * 72);
-      $label = date('d/m', strtotime($day));
-      $bg    = $count > 0 ? '#6b2cf5' : '#e3e1ee';
-      $color = $count > 0 ? '#ffffff' : '#adb5bd';
-      echo "<div style='flex:1;display:flex;flex-direction:column;align-items:center;gap:4px'>";
-      echo "<span style='font-size:11px;font-weight:700;color:" . $h($color === '#ffffff' ? '#6b2cf5' : $color) . "'>" . $h($count > 0 ? (string)$count : '') . "</span>";
-      echo "<div style='width:100%;background:" . $h($bg) . ";border-radius:4px 4px 0 0;height:" . $h((string)max($pct, $count > 0 ? 4 : 2)) . "px'></div>";
-      echo "<span style='font-size:10px;color:#6b7280'>" . $h($label) . "</span>";
+// Calendario de ameacas (ultimos 90 dias)
+$calDays = [];
+for ($i = 89; $i >= 0; $i--) {
+   $calDays[date('Y-m-d', strtotime("-{$i} days"))] = 0;
+}
+$calStart = date('Y-m-d 00:00:00', strtotime('-89 days'));
+foreach ($DB->request([
+   'SELECT' => ['detected_at'],
+   'FROM'   => Threat::getTable(),
+   'WHERE'  => ['NOT' => ['detected_at' => null], 'detected_at' => ['>=', $calStart]],
+]) as $row) {
+   $d = substr((string)($row['detected_at'] ?? ''), 0, 10);
+   if (array_key_exists($d, $calDays)) {
+      $calDays[$d]++;
+   }
+}
+$calTotalThreats = array_sum($calDays);
+$calMax = max(max(array_values($calDays)), 1);
+
+$calColor = static function (int $n) use ($calMax): string {
+   if ($n === 0) return '#ddd6fc';
+   $pct = $n / $calMax;
+   if ($pct < 0.2) return '#a78bfa';
+   if ($pct < 0.5) return '#7c3aed';
+   if ($pct < 0.8) return '#6b2cf5';
+   return '#3d0fa0';
+};
+$calTextColor = static function (int $n) use ($calMax): string {
+   if ($n === 0) return '#7c6fcd';
+   return $n / $calMax >= 0.2 ? '#ffffff' : '#2d1f6e';
+};
+
+$monthNames = [
+   1 => 'Jan', 2 => 'Fev', 3 => 'Mar', 4 => 'Abr',
+   5 => 'Mai', 6 => 'Jun', 7 => 'Jul', 8 => 'Ago',
+   9 => 'Set', 10 => 'Out', 11 => 'Nov', 12 => 'Dez',
+];
+$dayHeaders = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+$calMonths = [];
+for ($m = 2; $m >= 0; $m--) {
+   $calMonths[] = date('Y-m', strtotime("-{$m} months"));
+}
+
+echo "<section class='sentinelone-panel sentinelone-panel--wide' style='margin-bottom:24px'>";
+echo "<div class='sentinelone-panel__head'>";
+echo "<h3>" . __('Calendario de ameacas (ultimos 90 dias)', 'sentinelone') . "</h3>";
+echo "<span style='font-size:13px;color:var(--s1-muted)'>" . $h($calTotalThreats) . " " . __('ameacas no periodo', 'sentinelone') . "</span>";
+echo "</div>";
+echo "<div style='background:#f5f3ff;border-radius:10px;padding:20px 24px 24px;display:flex;gap:32px;flex-wrap:wrap;align-items:flex-start'>";
+
+foreach ($calMonths as $ym) {
+   [$yr, $mo] = explode('-', $ym);
+   $yr = (int)$yr; $mo = (int)$mo;
+   $daysInMonth = (int)date('t', mktime(0, 0, 0, $mo, 1, $yr));
+   $firstDow = (int)date('w', mktime(0, 0, 0, $mo, 1, $yr));
+
+   echo "<div style='flex:1;min-width:220px'>";
+   echo "<div style='font-weight:700;font-size:13px;color:#6b2cf5;margin-bottom:12px;letter-spacing:.4px;text-transform:uppercase'>";
+   echo $h($monthNames[$mo] . ' ' . $yr);
+   echo "</div>";
+   echo "<div style='display:grid;grid-template-columns:repeat(7,1fr);gap:4px'>";
+   foreach ($dayHeaders as $dh) {
+      echo "<div style='text-align:center;font-size:10px;font-weight:700;color:#9d9ab5;padding-bottom:4px'>" . $h($dh) . "</div>";
+   }
+   for ($blank = 0; $blank < $firstDow; $blank++) {
+      echo "<div style='border-radius:4px;aspect-ratio:1;background:#ede9fb'></div>";
+   }
+   for ($day = 1; $day <= $daysInMonth; $day++) {
+      $dateKey = sprintf('%04d-%02d-%02d', $yr, $mo, $day);
+      $cnt = $calDays[$dateKey] ?? 0;
+      $bg  = $calColor($cnt);
+      $fg  = $calTextColor($cnt);
+      $isToday = ($dateKey === date('Y-m-d')) ? "outline:2px solid #6b2cf5;outline-offset:1px;" : '';
+      $title = $h(date('d/m/Y', mktime(0,0,0,$mo,$day,$yr)) . ': ' . $cnt . ' ameaca(s)');
+      echo "<div title='{$title}' style='";
+      echo "background:{$bg};border-radius:4px;aspect-ratio:1;min-height:28px;display:flex;flex-direction:column;";
+      echo "align-items:center;justify-content:center;cursor:default;{$isToday}";
+      echo "transition:transform .15s,box-shadow .15s' ";
+      echo "onmouseover=\"this.style.transform='scale(1.2)';this.style.boxShadow='0 3px 10px rgba(107,44,245,.35)'\" ";
+      echo "onmouseout=\"this.style.transform='';this.style.boxShadow=''\">";
+      echo "<span style='font-size:9px;color:{$fg};opacity:.8;line-height:1'>" . $h((string)$day) . "</span>";
+      if ($cnt > 0) {
+         echo "<strong style='font-size:11px;color:{$fg};line-height:1.2'>" . $h((string)$cnt) . "</strong>";
+      }
       echo "</div>";
    }
-   echo "</div>";
-   echo "</section>";
+   echo "</div></div>";
 }
+
+// Legenda
+echo "<div style='display:flex;flex-direction:column;justify-content:center;gap:8px;padding:4px 0'>";
+echo "<span style='font-size:11px;color:#7c6fcd;font-weight:700;text-transform:uppercase;letter-spacing:.4px'>Escala</span>";
+foreach (['#ddd6fc' => 'Nenhuma', '#a78bfa' => '1–2', '#7c3aed' => '3–5', '#3d0fa0' => '6+'] as $bg => $lbl) {
+   echo "<div style='display:flex;align-items:center;gap:8px'>";
+   echo "<div style='width:20px;height:20px;background:{$bg};border-radius:4px;flex-shrink:0'></div>";
+   echo "<span style='font-size:12px;color:#4b5563'>" . $h($lbl) . "</span>";
+   echo "</div>";
+}
+echo "</div>";
+
+echo "</div></section>";
 
 // Top classificacoes de ameacas
 $byClass = $stats['threats_by_classification'] ?? [];
 if ($byClass !== [] && (int)($stats['threats_total'] ?? 0) > 0) {
    $totalThreats = (int)($stats['threats_total'] ?? 1);
+   $barColors = ['#3d0fa0', '#6b2cf5', '#9d6cf5', '#c4b8f5', '#ddd6fc'];
+   $i = 0;
    echo "<section class='sentinelone-panel sentinelone-panel--wide' style='margin-bottom:24px'>";
-   echo "<div class='sentinelone-panel__head'><h3>" . __('Top classificacoes de ameacas', 'sentinelone') . "</h3></div>";
-   echo "<div style='padding:16px 20px 8px'>";
+   echo "<div class='sentinelone-panel__head'><h3>Distribuição por Tipo de Ameaça</h3></div>";
+   echo "<div style='padding:12px 20px 16px'>";
    foreach ($byClass as $class => $count) {
-      $pctVal = (int)round(($count / $totalThreats) * 100);
-      echo "<div style='margin-bottom:12px'>";
-      echo "<div style='display:flex;justify-content:space-between;margin-bottom:4px;font-size:13px'>";
-      echo "<span style='font-weight:600;color:var(--s1-ink-text)'>" . $h(ucfirst((string)$class)) . "</span>";
-      echo "<span style='color:var(--s1-muted)'>" . $h((string)$count) . " (" . $h((string)$pctVal) . "%)</span>";
-      echo "</div>";
-      echo "<div style='background:#e3e1ee;border-radius:4px;height:8px'>";
-      echo "<div style='background:var(--s1-purple);width:" . $h((string)$pctVal) . "%;border-radius:4px;height:8px;transition:width .3s'></div>";
+      $pctVal  = (int)round(($count / $totalThreats) * 100);
+      $barColor = $barColors[min($i, count($barColors) - 1)];
+      $textColor = $i <= 1 ? '#fff' : '#2d1f6e';
+      echo "<div style='display:flex;align-items:center;gap:12px;margin-bottom:10px'>";
+      echo "<span style='min-width:120px;font-size:13px;font-weight:600;color:#2d1f6e'>" . $h(ucfirst((string)$class)) . "</span>";
+      echo "<div style='flex:1;background:#ede9fb;border-radius:6px;height:22px;overflow:hidden;position:relative'>";
+      echo "<div style='background:{$barColor};width:{$pctVal}%;height:100%;border-radius:6px;transition:width .5s;display:flex;align-items:center;padding-left:10px'>";
+      if ($pctVal >= 12) {
+         echo "<span style='font-size:11px;font-weight:700;color:{$textColor}'>{$count}</span>";
+      }
       echo "</div></div>";
+      echo "<span style='min-width:52px;text-align:right;font-size:13px;color:#6b7280;font-weight:600'>{$pctVal}%</span>";
+      if ($pctVal < 12) {
+         echo "<span style='font-size:12px;font-weight:700;color:#2d1f6e;min-width:24px'>{$count}</span>";
+      }
+      echo "</div>";
+      $i++;
    }
    echo "</div></section>";
 }
@@ -291,7 +398,14 @@ echo "<section class='sentinelone-panel sentinelone-panel--wide' style='margin-b
 echo "<div class='sentinelone-panel__head'><h3>" . __('Ameacas recentes', 'sentinelone') . "</h3><a href='" . $h($threatUrl) . "'>" . __('Ver todas', 'sentinelone') . "</a></div>";
 echo "<div class='table-responsive'>";
 echo "<table class='table table-vcenter table-hover mb-0'>";
-echo "<thead><tr><th>" . __('Ameaca', 'sentinelone') . "</th><th>" . __('Severidade', 'sentinelone') . "</th><th>" . __('Endpoint', 'sentinelone') . "</th><th>" . __('Status', 'sentinelone') . "</th><th>" . __('Detectada em', 'sentinelone') . "</th><th>" . __('Ticket', 'sentinelone') . "</th></tr></thead>";
+echo "<thead><tr>"
+   . "<th>Nome da Ameaça</th>"
+   . "<th>Avaliação</th>"
+   . "<th>Endpoint</th>"
+   . "<th>Status S1</th>"
+   . "<th>Detectada em</th>"
+   . "<th>Ticket GLPI</th>"
+   . "</tr></thead>";
 echo "<tbody>";
 foreach ($stats['recent_threats'] as $threat) {
    $ticketId = (int)($threat['tickets_id'] ?? 0);
