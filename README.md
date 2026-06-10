@@ -1,56 +1,101 @@
 # 🛡️ GLPI SentinelOne Plugin
 
-> Plugin para GLPI 11 que integra o SentinelOne ao inventario e ao service desk: dashboard operacional, sincronizacao de agentes, ameacas, CVEs e dispositivos rogues, tickets automaticos, alertas por e-mail e relatorio executivo semanal.
+> Plugin para GLPI 11 que integra o SentinelOne ao inventário e ao service desk: dashboard operacional, sincronização de agentes, ameaças, CVEs e dispositivos rogues, tickets automáticos, alertas por e-mail e **relatório executivo premium** — na tela e no e-mail.
 
-🏷️ Versao: `1.0.0` · Autoria: Celso / Claude · Licenca: GPLv3+
+🏷️ Versão: `1.4.0` · Autoria: Celso / Claude · Licença: GPLv3+
 
 ---
 
 ## ✨ Recursos
 
-### Nucleo
+### 🏠 Núcleo
 
-- ⚙️ Tela de configuracao com teste de conexao em tempo real (retorno em ms)
-- 🔌 Cliente REST com paginacao por cursor, suporte a `v2.0` / `v2.1` e presets de autenticacao
-- 🔄 Sincronizacao de agentes com vinculo automatico a computadores GLPI (serial, UUID, nome, MAC)
-- 🚨 Sincronizacao de ameacas com severidade derivada (status + severity + confidenceLevel + analystVerdict)
-- 📋 Sincronizacao de atividades e grupos SentinelOne
-- 🛡️ Registro do SentinelOne como antivirus nativo no computador GLPI (`glpi_itemantiviruses`)
+- ⚙️ Tela de configuração com teste de conexão em tempo real (retorno em ms)
+- 🔌 Cliente REST com paginação por cursor, suporte a `v2.0` / `v2.1` e presets de autenticação
+- 🔄 Sincronização de agentes com vínculo automático a computadores GLPI (serial, UUID, nome, MAC)
+- 🚨 Sincronização de ameaças com severidade derivada (status + severity + confidenceLevel + analystVerdict)
+- 📋 Sincronização de atividades e grupos SentinelOne
+- 🛡️ Registro do SentinelOne como antivírus nativo no computador GLPI (`glpi_itemantiviruses`)
 - 💻 Aba "SentinelOne" dentro de cada computador GLPI
-- 🔐 Permissoes dedicadas por perfil (`read`, `sync`, `config`)
+- 🔐 Permissões dedicadas por perfil (`read`, `sync`, `config`)
 
-### Tickets e alertas
+### 🎫 Tickets e alertas
 
-- 🎫 Criacao opcional de tickets para ameacas com regras configuráveis (status e classificacao)
+- 🎫 Criação opcional de tickets para ameaças com regras configuráveis (status e classificação)
 - 🛡️ Anti-duplicidade por `sentinelone_threat_id`
-- 🩺 Tickets de saude: agente offline, infectado ou abaixo da versao minima
-- 📬 Alertas por e-mail (GLPIMailer) para ameacas criticas e problemas de agente
+- 🩺 Tickets de saúde: agente offline, infectado ou abaixo da versão mínima
+- 📬 Alertas por e-mail (GLPIMailer) para ameaças críticas e problemas de agente
 
-### Cobertura e diagnostico
+### 🔎 Cobertura e diagnóstico
 
-- 🔎 Diagnostico de agentes sem vinculo com candidatos GLPI por nome, serial, UUID e MAC
-- 💻 Relatorio de computadores GLPI sem agente SentinelOne
-- 🚩 Dispositivos rogues: lista e sincronizacao de endpoints detectados mas nao gerenciados
+- 🔎 Diagnóstico de agentes sem vínculo com candidatos GLPI por nome, serial, UUID e MAC
+- 💻 Relatório de computadores GLPI sem agente SentinelOne
+- 🚩 Dispositivos rogues: lista e sincronização de endpoints detectados mas não gerenciados
 
-### CVEs (Vulnerability Management)
+### 🔬 CVEs (Vulnerability Management)
 
-- 🔬 Dashboard global de CVEs: totais por severidade, top CVEs, aplicacoes mais vulneraveis, endpoints mais expostos
-- 🔄 Sincronizacao de CVEs por agente via `/threats/cve` (requer plano Vulnerability Management)
-- 🛑 Deteccao automatica quando o endpoint CVE nao esta disponivel no plano
+- 🔬 Dashboard global de CVEs: totais por severidade, top CVEs, aplicações mais vulneráveis, endpoints mais expostos
+- 🔄 Sincronização de CVEs por agente via `/threats/cve` (requer plano Vulnerability Management)
+- 🛑 Detecção automática quando o endpoint CVE não está disponível no plano
 
-### Automacao avancada
+### 🤖 Automação avançada
 
-- ⏩ Sincronizacao incremental: usa cursor de timestamp para sincronizar apenas registros novos/atualizados (com overlap de 5 min)
-- 📊 Relatorio executivo semanal: resumo HTML enviado por e-mail para lista de destinatarios configurados
-- 🛠️ Acoes em massa em ameacas: abrir tickets ou marcar como resolvidas para selecao multipla
-- 🧭 Dashboard nativo do GLPI com widgets SentinelOne (KPIs, cobertura, ultimas ameacas)
+- ⏩ Sincronização incremental: usa cursor de timestamp para sincronizar apenas registros novos/atualizados (com overlap de 5 min)
+- 📊 **Relatório executivo semanal por e-mail**: HTML 600 px com índice de proteção, KPIs, trend de ameaças e lista de atenção
+- 🌐 **Relatório executivo na tela** (novo em v1.4.0 — veja abaixo)
+- 🛠️ Ações em massa em ameaças: abrir tickets ou marcar como resolvidas para seleção múltipla
+- 🧭 Dashboard nativo do GLPI com widgets SentinelOne (KPIs, cobertura, últimas ameaças)
 
-### Interface
+### 🎨 Interface
 
 - 🎨 Identidade visual da marca (gradiente roxo → magenta, badges de severidade) via CSS global
-- 🖼️ Logo proprio na tela de plugins do GLPI
-- 🔗 Deep links opcionais para a console SentinelOne (endpoint e ameaca)
-- 🧭 Onboarding guiado quando a integracao ainda nao esta configurada
+- 🖼️ Logo próprio na tela de plugins do GLPI
+- 🔗 Deep links opcionais para a console SentinelOne (endpoint e ameaça)
+- 🧭 Onboarding guiado quando a integração ainda não está configurada
+
+---
+
+## 📊 Relatório Executivo (v1.4.0)
+
+Acesse em **Plugins → SentinelOne → Relatório** ou clique no botão **Relatório** no dashboard.
+
+### 🌐 Página web (full-width)
+
+Uma página de alta resolução pensada para apresentações executivas e exportação em PDF:
+
+| Seção | Descrição |
+|---|---|
+| 🎯 Gauge de proteção | Donut `conic-gradient` com **Índice de Proteção** (0–100 %), código de cor e rótulo semântico |
+| 📅 Seletor de período | Botões **7 / 30 / 90 dias** — todos os dados filtram por `first_seen_at` |
+| 📦 KPI cards | Agentes totais, ameaças no período, tickets abertos e CVEs críticos |
+| 📈 Tendência de ameaças | Barras diárias com destaque em vermelho nos dias críticos |
+| ⚠️ Lista de atenção | Endpoints offline, infectados e desatualizados |
+
+**Índice de Proteção** = cobertura % − penalidades (infectado×3, desatualizado×0,5, offline×0,1)
+
+| Faixa | Cor | Rótulo |
+|---|---|---|
+| ≥ 90 % | 🟢 Verde | Proteção Excelente |
+| ≥ 75 % | 🔵 Azul | Proteção Satisfatória |
+| ≥ 60 % | 🟡 Âmbar | Proteção em Alerta |
+| < 60 % | 🔴 Vermelho | Proteção Crítica |
+
+### 📬 E-mail executivo semanal
+
+Cron `reportweekly` envia HTML de 600 px (compatível com clientes de e-mail) com os mesmos KPIs, barra de progresso de proteção e lista de atenção.
+
+Configure os destinatários em **Configurar → Plugins → SentinelOne → Relatório**.
+
+---
+
+## 🖥️ Dashboard (v1.4.0)
+
+Melhorias visuais e de usabilidade no dashboard operacional:
+
+- 🏷️ **Status traduzidos** para português: `marked_as_benign` → Falso Positivo, `mitigated` → Mitigada, `active` → Ativa, etc.
+- 📊 **Barras de classificação maiores** (22 px com gradiente roxo por rank e contagem embutida)
+- 🔤 Colunas renomeadas para linguagem de negócio: "Avaliação", "Status S1", "Nome da Ameaça", "Ticket GLPI"
+- 🔗 Botão **Relatório** na toolbar para acesso rápido ao relatório executivo
 
 ---
 
@@ -58,12 +103,12 @@
 
 - GLPI 11.0.x
 - PHP 8.2+
-- Acesso HTTPS da instancia GLPI ate a console SentinelOne
+- Acesso HTTPS da instância GLPI até a console SentinelOne
 - Token de API SentinelOne
 
 ---
 
-## 📦 Instalacao
+## 📦 Instalação
 
 Copie a pasta `sentinelone` para `plugins/` do GLPI:
 
@@ -73,14 +118,14 @@ Copie a pasta `sentinelone` para `plugins/` do GLPI:
 
 Acesse o GLPI como administrador em **Configurar > Plugins**, instale e habilite o plugin `SentinelOne`.
 
-### Docker
+### 🐳 Docker
 
 ```bash
 docker compose exec glpi-fpm php /var/www/glpi/bin/console plugin:install sentinelone
 docker compose exec glpi-fpm php /var/www/glpi/bin/console plugin:activate sentinelone
 ```
 
-### Validacao de sintaxe
+### ✅ Validação de sintaxe
 
 ```bash
 docker compose exec glpi-fpm sh -lc \
@@ -89,71 +134,72 @@ docker compose exec glpi-fpm sh -lc \
 
 ---
 
-## ⚙️ Configuracao
+## ⚙️ Configuração
 
 **Configurar > Plugins > SentinelOne**
 
-| Campo | Descricao |
+| Campo | Descrição |
 |---|---|
-| Integracao ativa | Habilita/desabilita toda a integracao |
+| Integração ativa | Habilita/desabilita toda a integração |
 | URL da console | Ex.: `https://usea1.sentinelone.net` |
 | Endpoint da API | Preset `v2.1` (recomendado), `v2.0` ou Personalizado |
-| Autenticacao | Preset `ApiToken` (recomendado) ou Personalizado |
+| Autenticação | Preset `ApiToken` (recomendado) ou Personalizado |
 | Token da API | Salvo com `GLPIKey` |
-| Entidade padrao | Entidade GLPI onde os objetos sao criados |
-| Sincronizacao incremental | Sincroniza apenas registros alterados desde a ultima execucao |
-| Criar tickets para ameacas | Ativa a criacao automatica de chamados |
-| Rogues: sincronizar | Ativa a sincronizacao de dispositivos rogues |
-| CVEs dos endpoints | Ativa a sincronizacao de CVEs (requer plano S1 com Vulnerability Management) |
-| Destinatarios do relatorio semanal | Lista de e-mails para o relatorio executivo (um por linha) |
+| Entidade padrão | Entidade GLPI onde os objetos são criados |
+| Sincronização incremental | Sincroniza apenas registros alterados desde a última execução |
+| Criar tickets para ameaças | Ativa a criação automática de chamados |
+| Rogues: sincronizar | Ativa a sincronização de dispositivos rogues |
+| CVEs dos endpoints | Ativa a sincronização de CVEs (requer plano S1 com Vulnerability Management) |
+| Destinatários do relatório semanal | Lista de e-mails para o relatório executivo (um por linha) |
 
 ---
 
-## 🔄 Sincronizacao
+## 🔄 Sincronização
 
-### Manual (dashboard ou botoes de cada tela)
+### Manual (dashboard ou botões de cada tela)
 
 - Sincronizar agentes
-- Sincronizar ameacas
-- Sincronizar tudo (agentes + ameacas + atividades + grupos)
+- Sincronizar ameaças
+- Sincronizar tudo (agentes + ameaças + atividades + grupos)
 - Sincronizar rogues
 - Sincronizar CVEs agora
 
-### Automatica (acoes automaticas GLPI)
+### Automática (ações automáticas GLPI)
 
-Criadas desabilitadas na instalacao. Ative em **Configurar > Acoes automaticas**:
+Criadas desabilitadas na instalação. Ative em **Configurar > Ações automáticas**:
 
-| Acao | Frequencia padrao |
+| Ação | Frequência padrão |
 |---|---|
-| `syncagents` | Configuravel |
-| `syncthreats` | Configuravel |
-| `syncactivities` | Configuravel |
-| `syncgroups` | Configuravel |
-| `syncrogues` | Configuravel |
-| `synccves` | Configuravel |
+| `syncagents` | Configurável |
+| `syncthreats` | Configurável |
+| `syncactivities` | Configurável |
+| `syncgroups` | Configurável |
+| `syncrogues` | Configurável |
+| `synccves` | Configurável |
 | `reportweekly` | 7 dias |
+| `purgelogs` | 24 h |
 
 ---
 
 ## 🎫 Regras de tickets
 
-Na secao **Regras de ticket** da configuracao:
+Na seção **Regras de ticket** da configuração:
 
-- **Status para abrir ticket**: lista separada por virgula. Ex.: `active, unmitigated`. Vazio = qualquer status.
-- **Classificacoes para abrir ticket**: Ex.: `malware, ransomware`. Vazio = qualquer classificacao.
-- **Trava de seguranca**: se os dois filtros estiverem vazios, nenhum ticket e criado.
-- Campos `Categoria`, `Urgencia`, `Impacto` e `Prioridade` sao compartilhados com os tickets de saude de agente.
+- **Status para abrir ticket**: lista separada por vírgula. Ex.: `active, unmitigated`. Vazio = qualquer status.
+- **Classificações para abrir ticket**: Ex.: `malware, ransomware`. Vazio = qualquer classificação.
+- **Trava de segurança**: se os dois filtros estiverem vazios, nenhum ticket é criado.
+- Campos `Categoria`, `Urgência`, `Impacto` e `Prioridade` são compartilhados com os tickets de saúde de agente.
 
 ---
 
-## 🩺 Saude de agentes
+## 🩺 Saúde de agentes
 
-Configure em **Saude de agentes e alertas**:
+Configure em **Saúde de agentes e alertas**:
 
 - Horas offline para abrir ticket
-- Versao minima esperada do agente
+- Versão mínima esperada do agente
 - Criar ticket para agente infectado
-- Registrar como antivirus nativo do computador
+- Registrar como antivírus nativo do computador
 
 ---
 
@@ -162,80 +208,88 @@ Configure em **Saude de agentes e alertas**:
 A aba **CVEs globais** exibe:
 
 - Totais por severidade (CRITICAL / HIGH / MEDIUM / LOW)
-- Top CVEs por numero de endpoints afetados
-- Aplicacoes mais vulneraveis
-- Endpoints com mais CVEs criticos
+- Top CVEs por número de endpoints afetados
+- Aplicações mais vulneráveis
+- Endpoints com mais CVEs críticos
 
-> Requer plano SentinelOne com Vulnerability Management add-on. Se o endpoint `/threats/cve` nao estiver disponivel, o plugin detecta automaticamente e registra um unico aviso nos logs.
+> Requer plano SentinelOne com Vulnerability Management add-on. Se o endpoint `/threats/cve` não estiver disponível, o plugin detecta automaticamente e registra um único aviso nos logs.
 
 ---
 
 ## 🚩 Dispositivos rogues
 
-Acesse via **Dashboard > Rogues** ou menu lateral. Lista endpoints detectados pela rede SentinelOne que ainda nao sao gerenciados. Sincronizacao via cron `syncrogues` ou botao manual.
+Acesse via **Dashboard > Rogues** ou menu lateral. Lista endpoints detectados pela rede SentinelOne que ainda não são gerenciados. Sincronização via cron `syncrogues` ou botão manual.
 
 ---
 
-## 📊 Acoes em massa em ameacas
+## 📊 Ações em massa em ameaças
 
-Na lista de ameacas (**Plugins > SentinelOne > Ameacas**), selecione multiplas linhas e use as acoes em massa:
+Na lista de ameaças (**Plugins > SentinelOne > Ameaças**), selecione múltiplas linhas e use as ações em massa:
 
-- **Abrir tickets para selecionadas**: cria ticket para cada ameaca selecionada sem ticket existente
+- **Abrir tickets para selecionadas**: cria ticket para cada ameaça selecionada sem ticket existente
 - **Marcar como resolvidas (local)**: atualiza `status = resolved` localmente sem chamar a API
-
----
-
-## 📬 Relatorio executivo semanal
-
-Configure **Destinatarios do relatorio semanal** com uma lista de e-mails. A acao automatica `reportweekly` envia um e-mail HTML com:
-
-- Totais de agentes, ameacas, tickets e logs da semana
-- Agentes offline, infectados e desatualizados
-- Ameacas por severidade e taxa de tickets criados
-- CVEs criticos e endpoints mais expostos (quando CVE habilitado)
 
 ---
 
 ## 🗄️ Tabelas criadas
 
-| Tabela | Conteudo |
+| Tabela | Conteúdo |
 |---|---|
 | `glpi_plugin_sentinelone_agents` | Agentes SentinelOne |
-| `glpi_plugin_sentinelone_threats` | Ameacas |
-| `glpi_plugin_sentinelone_logs` | Logs de sincronizacao |
+| `glpi_plugin_sentinelone_threats` | Ameaças |
+| `glpi_plugin_sentinelone_logs` | Logs de sincronização |
 | `glpi_plugin_sentinelone_activities` | Atividades |
 | `glpi_plugin_sentinelone_groups` | Grupos S1 |
 | `glpi_plugin_sentinelone_rogues` | Dispositivos rogues |
 | `glpi_plugin_sentinelone_cves` | CVEs por agente |
 
-Configuracoes ficam no contexto `plugin:sentinelone` do GLPI (`glpi_configs`).
+Configurações ficam no contexto `plugin:sentinelone` do GLPI (`glpi_configs`).
 
 ---
 
-## 🔐 Permissoes
+## 🔐 Permissões
 
-| Direito | Descricao |
+| Direito | Descrição |
 |---|---|
-| `plugin_sentinelone_read` | Visualizar dashboard, agentes, ameacas, logs |
-| `plugin_sentinelone_sync` | Executar sincronizacoes e acoes remotas |
-| `plugin_sentinelone_config` | Acessar e salvar a configuracao |
+| `plugin_sentinelone_read` | Visualizar dashboard, agentes, ameaças, logs |
+| `plugin_sentinelone_sync` | Executar sincronizações e ações remotas |
+| `plugin_sentinelone_config` | Acessar e salvar a configuração |
 
-Por padrao, `Super-Admin` e `Admin` recebem acesso completo. Revise em **Administracao > Perfis > [perfil] > SentinelOne**.
-
----
-
-## 🛡️ Boas praticas de seguranca
-
-- Use um token SentinelOne com escopo minimo necessario (somente leitura para inicio)
-- O token e salvo cifrado com `GLPIKey`
-- Habilite tickets somente apos validar a sincronizacao de ameacas
-- Nao exponha o token em logs, prints ou chamados
-- Teste em homologacao antes de colocar em producao
+Por padrão, `Super-Admin` e `Admin` recebem acesso completo. Revise em **Administração > Perfis > [perfil] > SentinelOne**.
 
 ---
 
-## 🧩 Observacoes GLPI 11
+## 🛡️ Boas práticas de segurança
 
-- CSRF validado pelo listener global antes do arquivo PHP do plugin; nao chamar `Session::checkCSRF()` de novo
-- `getTabNameForItem()` deve ser metodo de instancia (nao estatico)
+- Use um token SentinelOne com escopo mínimo necessário (somente leitura para início)
+- O token é salvo cifrado com `GLPIKey`
+- Habilite tickets somente após validar a sincronização de ameaças
+- Não exponha o token em logs, prints ou chamados
+- Teste em homologação antes de colocar em produção
+
+---
+
+## 🧩 Observações GLPI 11
+
+- CSRF validado pelo listener global antes do arquivo PHP do plugin; não chamar `Session::checkCSRF()` de novo
+- `getTabNameForItem()` deve ser método de instância (não estático)
 - Assets CSS/JS ficam em `public/css/` e `public/js/`; o hook `add_css` mapeia para `/plugins/sentinelone/...`
+
+---
+
+## 📅 Changelog
+
+### v1.4.0
+- 🌐 Novo relatório executivo web full-width (`front/report.php`) com gauge conic-gradient, seletor de período 7/30/90 dias, KPIs, trend chart e lista de atenção
+- 📬 E-mail executivo reformulado com Índice de Proteção e penalidades por risco
+- 🏷️ Dashboard: status S1 traduzidos para português, barras de classificação 22 px com gradiente, botão Relatório
+- ⚙️ Cron `purgelogs` para retenção configurável de logs
+
+### v1.3.0
+- 🔁 Retry com exponential backoff no cliente REST (429/5xx)
+- 🔒 `protectSecret` seguro: falha na criptografia emite warning, não salva em plaintext
+- 📅 Filtro `sync_date_from` e `agent_inactive_days` na sincronização
+- 🗑️ Retenção de logs configurável (`log_retention_days`)
+
+### v1.0.0
+- 🚀 Release inicial com sincronização incremental, CVEs, rogues, tickets, alertas e relatório semanal
