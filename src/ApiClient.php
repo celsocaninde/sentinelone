@@ -69,14 +69,87 @@ class ApiClient
       return $this->collectPaginated('/agents/' . rawurlencode($agentId) . '/applications', ['limit' => 200], 5);
    }
 
-   public function getAgentCves(string $agentId): array
+   /**
+    * CVEs affecting one agent, resolved through its risky installed applications.
+    *
+    * SentinelOne has no agent->CVE endpoint, so the chain is:
+    *   1. list the agent's applications carrying risk (riskLevelsNin=none)
+    *   2. fetch the CVEs of each of those applications
+    * Each returned CVE is enriched with the originating application name/version,
+    * since the /installed-applications/cves payload does not carry it.
+    *
+    * @param string $agentUuid SentinelOne agent UUID (column `uuid`), not the agent id.
+    */
+   public function getAgentCves(string $agentUuid): array
    {
-      return $this->collectPaginated('/threats/cve', ['agentIds' => $agentId, 'limit' => 100], 10);
+      $agentUuid = trim($agentUuid);
+      if ($agentUuid === '') {
+         return [];
+      }
+
+      $apps = $this->collectPaginated('/installed-applications', [
+         'agentUuid__contains' => $agentUuid,
+         'riskLevelsNin'       => 'none',
+         'limit'               => 100,
+      ], 5);
+
+      $cves = [];
+      foreach ($apps as $app) {
+         // Guard against the "contains" filter matching a different agent.
+         if (isset($app['agentUuid']) && strcasecmp((string)$app['agentUuid'], $agentUuid) !== 0) {
+            continue;
+         }
+
+         $appId = trim((string)($app['id'] ?? ''));
+         if ($appId === '') {
+            continue;
+         }
+
+         foreach ($this->getApplicationCves($appId) as $cve) {
+            $cve['application_name']    = $app['name'] ?? null;
+            $cve['application_version'] = $app['version'] ?? null;
+            $cves[] = $cve;
+         }
+      }
+
+      return $cves;
+   }
+
+   /**
+    * Every installed application carrying risk across the whole account
+    * (riskLevel != none). Used to resolve CVEs for the entire fleet in a single
+    * pass instead of one request per agent. Each item carries `agentUuid`,
+    * `agentComputerName`, `id`, `name`, `version` and `riskLevel`.
+    */
+   public function getRiskyApplications(array $params = [], int $maxPages = 30): array
+   {
+      return $this->collectPaginated('/installed-applications', array_merge([
+         'riskLevelsNin' => 'none',
+         'limit'         => 100,
+      ], $params), $maxPages);
+   }
+
+   /**
+    * CVEs of a single installed application (by SentinelOne application id).
+    */
+   public function getApplicationCves(string $applicationId, int $maxPages = 5): array
+   {
+      $applicationId = trim($applicationId);
+      if ($applicationId === '') {
+         return [];
+      }
+
+      return $this->collectPaginated('/installed-applications/cves', [
+         'applicationIds' => $applicationId,
+         'limit'          => 100,
+      ], $maxPages);
    }
 
    public function getRogueDevices(array $params = [], int $maxPages = 20): array
    {
-      return $this->collectPaginated('/ranger/rogues/endpoints', array_merge(['limit' => 100], $params), $maxPages);
+      // SentinelOne "Unprotected Endpoints Discovery" (rogues) table.
+      // See swagger: GET /web/api/v2.1/rogues/table-view
+      return $this->collectPaginated('/rogues/table-view', array_merge(['limit' => 100], $params), $maxPages);
    }
 
    // ---- Threat actions ----

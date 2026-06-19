@@ -193,6 +193,41 @@ class Cve extends \CommonDBTM
       ];
    }
 
+   /**
+    * Aggregated headline metrics for the CVE overview page.
+    *
+    * @return array{records:int,distinct:int,endpoints:int,apps:int,critical_high:int}
+    */
+   public static function getSummary(): array
+   {
+      global $DB;
+
+      $out = ['records' => 0, 'distinct' => 0, 'endpoints' => 0, 'apps' => 0, 'critical_high' => 0];
+
+      if (!$DB->tableExists(self::getTable())) {
+         return $out;
+      }
+
+      $result = $DB->doQuery(
+         "SELECT COUNT(*) AS records,"
+         . " COUNT(DISTINCT cve_id) AS distinct_cves,"
+         . " COUNT(DISTINCT plugin_sentinelone_agents_id) AS endpoints,"
+         . " COUNT(DISTINCT NULLIF(application_name, '')) AS apps,"
+         . " SUM(CASE WHEN severity_rank <= 2 THEN 1 ELSE 0 END) AS critical_high"
+         . " FROM `" . self::getTable() . "`"
+      );
+
+      if ($result && ($row = $result->fetch_assoc())) {
+         $out['records']       = (int)$row['records'];
+         $out['distinct']      = (int)$row['distinct_cves'];
+         $out['endpoints']     = (int)$row['endpoints'];
+         $out['apps']          = (int)$row['apps'];
+         $out['critical_high'] = (int)$row['critical_high'];
+      }
+
+      return $out;
+   }
+
    public static function getTopCves(int $limit = 10): array
    {
       global $DB;

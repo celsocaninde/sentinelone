@@ -120,15 +120,29 @@ try {
       exit;
    } elseif ($action === 'syncrogues') {
       $result = Sync::syncRogues();
-      \Session::addMessageAfterRedirect('Dispositivos rogues sincronizados: ' . $result['total'] . '.');
+      $status = $result['status'] ?? 'ok';
+      if ($status === 'disabled') {
+         \Session::addMessageAfterRedirect('Sincronizacao de rogues esta desativada. Ative "Sincronizar dispositivos rogues (Ranger)" na configuracao do plugin.', false, WARNING);
+      } elseif ($status === 'not_configured') {
+         \Session::addMessageAfterRedirect('Integracao SentinelOne nao configurada.', false, WARNING);
+      } elseif ($status === 'forbidden') {
+         \Session::addMessageAfterRedirect('Acesso negado pelo SentinelOne (403): o token nao tem permissao para o Ranger. Verifique se o Ranger esta licenciado e se o papel do service-user inclui o escopo de Network Discovery.', false, ERROR);
+      } elseif ($status === 'error') {
+         \Session::addMessageAfterRedirect('Falha ao sincronizar rogues: ' . ($result['error'] ?? 'erro desconhecido'), false, ERROR);
+      } else {
+         \Session::addMessageAfterRedirect('Dispositivos rogues sincronizados: ' . $result['total'] . '.');
+      }
       \Html::redirect($roguesUrl);
       exit;
    } elseif ($action === 'synccves') {
       $result = Sync::syncCves(true);
-      if (isset($result['error'])) {
-         \Session::addMessageAfterRedirect('CVEs: endpoint indisponivel — provavelmente o plano SentinelOne nao inclui Vulnerability Management.', false, WARNING);
+      $status = $result['status'] ?? 'ok';
+      if ($status === 'forbidden') {
+         \Session::addMessageAfterRedirect('Acesso negado pelo SentinelOne (403): o token nao tem permissao para Application Risk / Vulnerability Management.', false, ERROR);
+      } elseif ($status === 'not_configured') {
+         \Session::addMessageAfterRedirect('Integracao SentinelOne nao configurada.', false, WARNING);
       } elseif ($result['processed'] === 0) {
-         \Session::addMessageAfterRedirect('Nenhum agente encontrado para sincronizar CVEs.', false, WARNING);
+         \Session::addMessageAfterRedirect('Nenhum agente com UUID encontrado para sincronizar CVEs.', false, WARNING);
       } else {
          \Session::addMessageAfterRedirect('CVEs sincronizados: ' . $result['cves'] . ' em ' . $result['processed'] . ' agentes.');
       }

@@ -412,67 +412,101 @@ class Sync
 
       if (!Config::isConfigured($config)) {
          Log::record('synccves', 'skipped', 'Integracao SentinelOne nao configurada.');
-         return ['processed' => 0, 'cves' => 0];
+         return ['processed' => 0, 'cves' => 0, 'status' => 'not_configured'];
       }
 
       if (!$force && (string)($config['sync_cves'] ?? '0') !== '1') {
-         return ['processed' => 0, 'cves' => 0];
+         return ['processed' => 0, 'cves' => 0, 'status' => 'disabled'];
       }
 
-      $client = ApiClient::fromConfig($config);
-      $limit = max(1, min(200, (int)($config['sync_cves_limit'] ?? 30)));
+      // Pode percorrer varias paginas/aplicacoes; evita estourar o tempo padrao.
+      @set_time_limit(0);
 
-      $agents = [];
+      $client = ApiClient::fromConfig($config);
+
+      // Mapa uuid -> id do agente local (uma vez), para cobrir a frota inteira.
+      $agentIdByUuid = [];
       foreach ($DB->request([
-         'SELECT' => ['id', 'sentinelone_id'],
+         'SELECT' => ['id', 'uuid'],
          'FROM'   => Agent::getTable(),
-         'ORDER'  => ['last_active_at DESC'],
-         'LIMIT'  => $limit,
       ]) as $row) {
-         $agents[] = $row;
+         $uuid = strtolower(trim((string)($row['uuid'] ?? '')));
+         if ($uuid !== '') {
+            $agentIdByUuid[$uuid] = (int)$row['id'];
+         }
+      }
+
+      // 1) Todas as aplicacoes com risco da conta de uma vez (em vez de 1 chamada
+      //    por agente). Normalmente sao poucas, entao cobre a frota toda barato.
+      try {
+         $riskyApps = $client->getRiskyApplications();
+      } catch (\Throwable $error) {
+         $msg = $error->getMessage();
+         $forbidden = str_contains($msg, '403') || stripos($msg, 'permission') !== false;
+         Log::record('synccves', 'error', ($forbidden
+            ? 'Acesso negado pelo SentinelOne (403): token sem permissao para Application Risk / Vulnerability Management. '
+            : 'Falha ao buscar aplicacoes com risco: ') . $msg);
+         return ['processed' => 0, 'cves' => 0, 'status' => $forbidden ? 'forbidden' : 'error', 'error' => $msg];
+      }
+
+      // 2) Agrupa CVEs por agente local, buscando os CVEs de cada aplicacao uma vez.
+      $cvesByAgent = [];
+      $appCveCache = [];
+      $unmatched   = 0;
+      foreach ($riskyApps as $app) {
+         $uuid = strtolower(trim((string)($app['agentUuid'] ?? '')));
+         if ($uuid === '' || !isset($agentIdByUuid[$uuid])) {
+            $unmatched++;
+            continue;
+         }
+         $agentId = $agentIdByUuid[$uuid];
+
+         $appId = trim((string)($app['id'] ?? ''));
+         if ($appId === '') {
+            continue;
+         }
+
+         if (!isset($appCveCache[$appId])) {
+            try {
+               $appCveCache[$appId] = $client->getApplicationCves($appId);
+            } catch (\Throwable $error) {
+               Log::record('synccves', 'warning', 'Aplicacao ' . $appId . ': ' . $error->getMessage());
+               $appCveCache[$appId] = [];
+            }
+         }
+
+         foreach ($appCveCache[$appId] as $cve) {
+            $cve['application_name']    = $app['name'] ?? null;
+            $cve['application_version'] = $app['version'] ?? null;
+            $cvesByAgent[$agentId][]    = $cve;
+         }
+      }
+
+      // 3) Refresh completo: limpa a tabela e reinsere (so apos buscar tudo com sucesso).
+      if ($DB->tableExists(Cve::getTable())) {
+         $DB->delete(Cve::getTable(), [new \QueryExpression('1 = 1')]);
       }
 
       $totalCves = 0;
-
-      // Testa o endpoint com o primeiro agente antes de iterar todos.
-      // O resultado do probe e reutilizado na primeira iteracao para evitar chamada dupla a API.
-      $firstAgentCves = null;
-      if ($agents !== []) {
-         try {
-            $firstAgentCves = $client->getAgentCves((string)$agents[0]['sentinelone_id']);
-         } catch (\Throwable $probe) {
-            $probeMsg = $probe->getMessage();
-            $is404    = str_contains($probeMsg, 'HTTP 404') || str_contains($probeMsg, 'Erro HTTP 404');
-
-            if ($is404) {
-               $msg = 'Endpoint /threats/cve retornou 404 — o recurso Vulnerability Management '
-                  . 'pode nao estar disponivel no seu plano SentinelOne. '
-                  . 'Desative "Sincronizar CVEs" na configuracao para remover este aviso.';
-               Log::record('synccves', 'warning', $msg, 0);
-            } else {
-               $msg = 'Endpoint /threats/cve indisponivel (verifique plano/permissoes): ' . $probeMsg;
-               Log::record('synccves', 'error', $msg, 0);
-            }
-
-            return ['processed' => 0, 'cves' => 0, 'error' => $msg];
-         }
+      foreach ($cvesByAgent as $agentId => $cves) {
+         self::upsertCvesForAgent((int)$agentId, $cves);
+         $totalCves += count($cves);
       }
 
-      foreach ($agents as $i => $agent) {
-         try {
-            $cves = ($i === 0 && $firstAgentCves !== null)
-               ? $firstAgentCves
-               : $client->getAgentCves((string)$agent['sentinelone_id']);
-            self::upsertCvesForAgent((int)$agent['id'], $cves);
-            $totalCves += count($cves);
-         } catch (\Throwable $error) {
-            Log::record('synccves', 'warning', 'Agente ' . $agent['sentinelone_id'] . ': ' . $error->getMessage());
-         }
-      }
+      Log::record('synccves', 'ok', sprintf(
+         'Sincronizacao de CVEs concluida. %d apps com risco, %d endpoints, %d CVEs.',
+         count($riskyApps),
+         count($cvesByAgent),
+         $totalCves
+      ), count($cvesByAgent));
 
-      Log::record('synccves', 'ok', 'Sincronizacao de CVEs concluida.', count($agents));
-
-      return ['processed' => count($agents), 'cves' => $totalCves];
+      return [
+         'processed' => count($cvesByAgent),
+         'cves'      => $totalCves,
+         'apps'      => count($riskyApps),
+         'unmatched' => $unmatched,
+         'status'    => 'ok',
+      ];
    }
 
    public static function syncRogues(): array
@@ -481,21 +515,34 @@ class Sync
 
       if (!Config::isConfigured($config)) {
          Log::record('syncrogues', 'skipped', 'Integracao SentinelOne nao configurada.');
-         return ['total' => 0];
+         return ['total' => 0, 'status' => 'not_configured'];
       }
 
       if ((string)($config['sync_rogues'] ?? '0') !== '1') {
-         return ['total' => 0];
+         Log::record('syncrogues', 'skipped', 'Sincronizacao de rogues desativada nas configuracoes (opt-in).');
+         return ['total' => 0, 'status' => 'disabled'];
       }
 
-      $client  = ApiClient::fromConfig($config);
-      $devices = $client->getRogueDevices();
+      try {
+         $client  = ApiClient::fromConfig($config);
+         $devices = $client->getRogueDevices();
+      } catch (\Throwable $e) {
+         $msg = $e->getMessage();
+         Log::record('syncrogues', 'error', $msg);
+         // 403 = a conta/token nao tem acesso ao Ranger (licenca ou permissao).
+         $forbidden = str_contains($msg, '403') || stripos($msg, 'permission') !== false;
+         return [
+            'total'  => 0,
+            'status' => $forbidden ? 'forbidden' : 'error',
+            'error'  => $msg,
+         ];
+      }
 
       self::upsertRogueDevices($devices);
 
       Log::record('syncrogues', 'ok', 'Sincronizacao de dispositivos rogues concluida.', count($devices));
 
-      return ['total' => count($devices)];
+      return ['total' => count($devices), 'status' => 'ok'];
    }
 
    private static function upsertRogueDevices(array $devices): void
@@ -514,13 +561,22 @@ class Sync
             continue;
          }
 
-         $hostname  = trim((string)($item['networkName'] ?? $item['hostname'] ?? ''));
-         $ip        = trim((string)($item['ip'] ?? ''));
+         // Field names follow the SentinelOne /rogues/table-view schema, with the
+         // older/snake_case names kept as fallbacks.
+         $hostnames = $item['hostnames'] ?? null;
+         $hostname  = is_array($hostnames) && $hostnames !== []
+            ? trim((string)$hostnames[0])
+            : trim((string)($item['networkName'] ?? $item['hostname'] ?? ''));
+         $ip        = trim((string)($item['localIp'] ?? $item['ip'] ?? ''));
          $extIp     = trim((string)($item['externalIp'] ?? $item['external_ip'] ?? ''));
-         $mac       = trim((string)($item['mac'] ?? ''));
-         $os        = trim((string)($item['os'] ?? ''));
-         $classif   = trim((string)($item['classification'] ?? ''));
-         $vendor    = trim((string)($item['vendor'] ?? ''));
+         $mac       = trim((string)($item['macAddress'] ?? $item['mac'] ?? ''));
+         $os        = trim((string)($item['osName'] ?? $item['os'] ?? ''));
+         $osVersion = trim((string)($item['osVersion'] ?? ''));
+         if ($os !== '' && $osVersion !== '' && stripos($os, $osVersion) === false) {
+            $os .= ' ' . $osVersion;
+         }
+         $classif   = trim((string)($item['deviceType'] ?? $item['deviceFunction'] ?? $item['classification'] ?? ''));
+         $vendor    = trim((string)($item['manufacturer'] ?? $item['vendor'] ?? ''));
          $siteName  = trim((string)($item['siteName'] ?? $item['site_name'] ?? ''));
          $agentName = trim((string)($item['agentComputerName'] ?? $item['detecting_agent_name'] ?? ''));
 
@@ -596,8 +652,12 @@ class Sync
             continue;
          }
 
-         $severity = strtoupper(trim((string)($item['severity'] ?? 'UNKNOWN')));
-         $cvssScore = isset($item['cvssScore']) ? (float)$item['cvssScore'] : (isset($item['cvss']) ? (float)$item['cvss'] : null);
+         // /installed-applications/cves expoe `riskLevel` (none/low/medium/high/critical)
+         // e `score` (CVSS). Mantemos os nomes antigos como fallback.
+         $severityRaw = (string)($item['severity'] ?? $item['riskLevel'] ?? '');
+         $severity = strtoupper(trim($severityRaw !== '' ? $severityRaw : 'UNKNOWN'));
+         $cvssScore = $item['cvssScore'] ?? $item['cvss'] ?? $item['score'] ?? null;
+         $cvssScore = $cvssScore !== null ? (float)$cvssScore : null;
          $appName = trim((string)($item['applicationName'] ?? $item['application_name'] ?? ''));
          $appVersion = trim((string)($item['applicationVersion'] ?? $item['application_version'] ?? ''));
          $description = trim((string)($item['description'] ?? ''));

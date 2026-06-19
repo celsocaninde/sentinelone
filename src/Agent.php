@@ -310,6 +310,65 @@ class Agent extends \CommonDBTM
       ];
    }
 
+   /**
+    * Headline metrics + recent rows + OS breakdown for the agents overview page.
+    *
+    * @return array{total:int,online:int,offline:int,infected:int,quarantine:int,linked:int,unlinked:int,by_os:array,recent:array}
+    */
+   public static function getOverview(int $recentLimit = 25): array
+   {
+      global $DB;
+
+      $out = [
+         'total' => 0, 'online' => 0, 'offline' => 0, 'infected' => 0,
+         'quarantine' => 0, 'linked' => 0, 'unlinked' => 0, 'by_os' => [], 'recent' => [],
+      ];
+
+      if (!$DB->tableExists(self::getTable())) {
+         return $out;
+      }
+
+      $table = self::getTable();
+
+      $res = $DB->doQuery(
+         "SELECT COUNT(*) AS total,"
+         . " SUM(is_online) AS online,"
+         . " SUM(is_infected) AS infected,"
+         . " SUM(is_network_quarantine) AS quarantine,"
+         . " SUM(CASE WHEN computers_id IS NOT NULL AND computers_id > 0 THEN 1 ELSE 0 END) AS linked"
+         . " FROM `" . $table . "`"
+      );
+      if ($res && ($r = $res->fetch_assoc())) {
+         $out['total']      = (int)$r['total'];
+         $out['online']     = (int)$r['online'];
+         $out['infected']   = (int)$r['infected'];
+         $out['quarantine'] = (int)$r['quarantine'];
+         $out['linked']     = (int)$r['linked'];
+      }
+      $out['offline']  = max(0, $out['total'] - $out['online']);
+      $out['unlinked'] = max(0, $out['total'] - $out['linked']);
+
+      $resOs = $DB->doQuery(
+         "SELECT COALESCE(NULLIF(TRIM(os_name), ''), '—') AS os, COUNT(*) AS c"
+         . " FROM `" . $table . "` GROUP BY os ORDER BY c DESC LIMIT 6"
+      );
+      if ($resOs) {
+         while ($row = $resOs->fetch_assoc()) {
+            $out['by_os'][] = ['os' => (string)$row['os'], 'count' => (int)$row['c']];
+         }
+      }
+
+      foreach ($DB->request([
+         'FROM'  => $table,
+         'ORDER' => ['last_active_at DESC'],
+         'LIMIT' => $recentLimit,
+      ]) as $row) {
+         $out['recent'][] = $row;
+      }
+
+      return $out;
+   }
+
    public static function countUnprotectedComputers(): int
    {
       global $DB;

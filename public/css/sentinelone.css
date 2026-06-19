@@ -1283,7 +1283,7 @@
    font-family: monospace;
    font-size: 11.5px;
    font-weight: 600;
-   color: var(--s1-accent);
+   color: var(--s1-purple-700);
    text-decoration: none;
 }
 
@@ -1348,3 +1348,311 @@
    color: var(--s1-muted);
    font-size: 11.5px;
 }
+
+/* ---------- Pagina de CVEs (visual premium) ---------- */
+.sentinelone-cves__hero {
+   position: relative;
+   overflow: hidden;
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   gap: 1rem;
+   padding: 1.4rem 1.5rem;
+   margin-bottom: 1rem;
+   border: 0;
+   border-radius: 16px;
+   background: var(--s1-grad);
+   color: #fff;
+   box-shadow: 0 18px 40px rgba(42, 15, 94, .28);
+}
+.sentinelone-cves__hero::after {
+   content: "";
+   position: absolute;
+   top: -60%;
+   right: -10%;
+   width: 380px;
+   height: 380px;
+   background: radial-gradient(circle, rgba(255, 255, 255, .18), transparent 62%);
+   pointer-events: none;
+}
+.sentinelone-cves__hero h2 {
+   margin: 0;
+   font-size: 1.5rem;
+   font-weight: 800;
+   letter-spacing: -.01em;
+   color: #fff;
+}
+.sentinelone-cves__hero p {
+   margin: .25rem 0 0;
+   color: rgba(255, 255, 255, .82);
+}
+.sentinelone-cves__hero .btn {
+   border-radius: 10px;
+   font-weight: 700;
+}
+.sentinelone-cves__hero .btn-light {
+   color: var(--s1-purple-900);
+   background: #fff;
+   border-color: #fff;
+   box-shadow: 0 4px 12px rgba(42, 15, 94, .28);
+}
+.sentinelone-cves__hero .btn-light:hover {
+   background: #f1ecff;
+   border-color: #f1ecff;
+   transform: translateY(-1px);
+}
+.sentinelone-cves__hero .btn-ghost {
+   color: #fff;
+   background: rgba(255, 255, 255, .14);
+   border: 1px solid rgba(255, 255, 255, .38);
+}
+.sentinelone-cves__hero .btn-ghost:hover {
+   background: rgba(255, 255, 255, .24);
+   color: #fff;
+}
+.sentinelone-cves__actions {
+   display: flex;
+   align-items: center;
+   gap: .55rem;
+   flex-wrap: wrap;
+   justify-content: flex-end;
+}
+
+/* barra de severidade empilhada */
+.s1-sevbar {
+   display: flex;
+   height: 16px;
+   border-radius: 999px;
+   overflow: hidden;
+   background: #ece9f6;
+}
+.s1-sevbar__seg {
+   height: 100%;
+   transition: width .4s ease;
+}
+.s1-sevbar__seg--critical { background: linear-gradient(120deg, #b5179e, #7a1de0); }
+.s1-sevbar__seg--high     { background: #e05a00; }
+.s1-sevbar__seg--medium   { background: #f5a623; }
+.s1-sevbar__seg--low      { background: #9aa4b2; }
+.s1-sevbar__seg--ok       { background: linear-gradient(120deg, #16a34a, #0ea5a4); }
+
+.s1-legend {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 1rem;
+   margin-top: .8rem;
+}
+.s1-legend__item {
+   display: inline-flex;
+   align-items: center;
+   gap: .45rem;
+   font-size: .82rem;
+   color: var(--s1-muted);
+   font-weight: 600;
+}
+.s1-legend__dot {
+   width: 11px;
+   height: 11px;
+   border-radius: 4px;
+   flex: 0 0 auto;
+}
+.s1-legend__dot--critical { background: linear-gradient(120deg, #b5179e, #7a1de0); }
+.s1-legend__dot--high     { background: #e05a00; }
+.s1-legend__dot--medium   { background: #f5a623; }
+.s1-legend__dot--low      { background: #9aa4b2; }
+.s1-legend__dot--ok       { background: linear-gradient(120deg, #16a34a, #0ea5a4); }
+.s1-legend__item strong   { color: var(--s1-ink-text); font-weight: 800; }
+
+/* medidor horizontal (apps) */
+.s1-meter {
+   position: relative;
+   height: 8px;
+   min-width: 70px;
+   border-radius: 999px;
+   background: #ece9f6;
+   overflow: hidden;
+}
+.s1-meter__fill {
+   position: absolute;
+   inset: 0 auto 0 0;
+   border-radius: 999px;
+   background: var(--s1-grad-btn);
+}
+
+/* chip de score CVSS */
+.s1-cvss {
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+   min-width: 36px;
+   padding: .18rem .4rem;
+   border-radius: 7px;
+   font-weight: 800;
+   font-size: .78rem;
+   font-variant-numeric: tabular-nums;
+}
+.s1-cvss--critical { color: #fff; background: linear-gradient(120deg, #b5179e, #7a1de0); }
+.s1-cvss--high     { color: #fff; background: #e05a00; }
+.s1-cvss--medium   { color: #7c4700; background: #ffe1a6; }
+.s1-cvss--low      { color: #475569; background: #e9edf3; }
+
+/* rank das aplicacoes vulneraveis */
+.s1-rank {
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+   width: 22px;
+   height: 22px;
+   border-radius: 7px;
+   font-size: .72rem;
+   font-weight: 800;
+   color: var(--s1-purple-700);
+   background: var(--s1-grad-soft);
+}
+.s1-rank--top { color: #fff; background: var(--s1-grad-btn); }
+
+.s1-cve-table tbody td .s1-app-cell {
+   display: flex;
+   flex-direction: column;
+   gap: .3rem;
+}
+.s1-app-cell__name {
+   font-weight: 600;
+   color: var(--s1-ink-text);
+}
+
+/* ---------- Botoes claros no hero do diagnostico/cobertura ---------- */
+.sentinelone-diagnostic__hero .btn-outline-secondary,
+.sentinelone-diagnostic__hero .btn-secondary {
+   color: var(--s1-purple-900);
+   font-weight: 700;
+   border-color: #fff;
+   background: #fff;
+   box-shadow: 0 4px 12px rgba(42, 15, 94, .28);
+}
+.sentinelone-diagnostic__hero .btn-outline-secondary .ti,
+.sentinelone-diagnostic__hero .btn-secondary .ti {
+   color: var(--s1-purple-700);
+}
+.sentinelone-diagnostic__hero .btn-outline-secondary:hover,
+.sentinelone-diagnostic__hero .btn-secondary:hover {
+   color: var(--s1-purple-900);
+   background: #f1ecff;
+   border-color: #f1ecff;
+   transform: translateY(-1px);
+}
+
+/* ---------- Cards clicaveis (stat -> secao/pagina) ---------- */
+a.sentinelone-stat,
+a.sentinelone-diagnostic__stat {
+   display: block;
+   text-decoration: none;
+   color: inherit;
+   transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+a.sentinelone-stat:hover,
+a.sentinelone-diagnostic__stat:hover {
+   transform: translateY(-2px);
+   box-shadow: 0 12px 26px rgba(42, 15, 94, .14);
+   border-color: var(--s1-purple);
+}
+a.sentinelone-stat:hover strong {
+   color: var(--s1-purple-700);
+}
+.s1-stat-go {
+   position: absolute;
+   top: .7rem;
+   right: .8rem;
+   color: var(--s1-muted);
+   opacity: 0;
+   transition: opacity .15s ease, transform .15s ease;
+}
+a.sentinelone-stat:hover .s1-stat-go,
+a.sentinelone-diagnostic__stat:hover .s1-stat-go {
+   opacity: 1;
+   transform: translateX(2px);
+   color: var(--s1-purple-700);
+}
+
+/* barras de acento por status nos cards do diagnostico */
+.sentinelone-diagnostic__stat--warning::before { background: linear-gradient(120deg, #f5a623, #e05a00); }
+.sentinelone-diagnostic__stat--danger::before  { background: linear-gradient(120deg, #f0506e, #b5179e); }
+.sentinelone-diagnostic__stat--ok::before      { background: linear-gradient(120deg, #16a34a, #0ea5a4); }
+
+/* offset de ancora para nao ficar sob a navbar do GLPI */
+[id^="s1-anchor-"] {
+   scroll-margin-top: 84px;
+}
+
+/* ---------- Tabs segmentadas (cobertura) ---------- */
+.s1-segment {
+   display: inline-flex;
+   gap: .25rem;
+   padding: .3rem;
+   margin: 1rem 0;
+   border-radius: 12px;
+   background: var(--s1-grad-soft);
+   border: 1px solid rgba(107, 44, 245, .15);
+}
+.s1-segment__item {
+   display: inline-flex;
+   align-items: center;
+   gap: .45rem;
+   padding: .5rem .9rem;
+   border-radius: 9px;
+   font-size: .88rem;
+   font-weight: 700;
+   color: var(--s1-purple-700);
+   text-decoration: none;
+   transition: background .15s ease, color .15s ease, box-shadow .15s ease;
+}
+.s1-segment__item:hover { background: rgba(255, 255, 255, .6); }
+.s1-segment__item.is-active {
+   background: #fff;
+   color: var(--s1-ink-text);
+   box-shadow: 0 4px 12px rgba(42, 15, 94, .12);
+}
+.s1-segment__count {
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+   min-width: 22px;
+   height: 20px;
+   padding: 0 .4rem;
+   border-radius: 999px;
+   font-size: .72rem;
+   font-weight: 800;
+   color: #fff;
+   background: var(--s1-grad-btn);
+}
+.s1-segment__item:not(.is-active) .s1-segment__count {
+   background: rgba(107, 44, 245, .22);
+   color: var(--s1-purple-900);
+}
+
+/* ---------- Hint sutil (substitui .alert) ---------- */
+.s1-hint {
+   display: flex;
+   align-items: flex-start;
+   gap: .55rem;
+   margin: 0 0 1rem;
+   padding: .7rem .95rem;
+   border-radius: 11px;
+   background: var(--s1-grad-soft);
+   border: 1px solid rgba(107, 44, 245, .18);
+   color: var(--s1-ink-text);
+   font-size: .85rem;
+   line-height: 1.45;
+}
+.s1-hint .ti { color: var(--s1-purple-700); margin-top: .1rem; flex: 0 0 auto; font-size: 1.05rem; }
+.s1-hint--warn {
+   background: #fff6e3;
+   border-color: #f0c674;
+   color: #4a2c00;
+}
+.s1-hint--warn .ti { color: #b8860b; }
+
+/* identificadores compactos na tabela de cobertura */
+.s1-cve-table .sentinelone-identifiers { gap: .15rem; }
+.s1-cve-table .sentinelone-identifiers code { font-size: 11px; }
+.s1-cve-table .sentinelone-check strong { font-weight: 600; }

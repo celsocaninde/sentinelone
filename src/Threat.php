@@ -213,6 +213,53 @@ class Threat extends \CommonDBTM
       return "<span class='s1-badge {$class}'>" . self::h($label) . "</span>";
    }
 
+   /**
+    * Aggregated metrics + recent rows for the threats overview page.
+    * Buckets are derived (not a stored column), so rows are bucketed in PHP.
+    *
+    * @return array{total:int,buckets:array<string,int>,tickets:int,last30:int,recent:array<int,array>}
+    */
+   public static function getOverview(int $recentLimit = 25): array
+   {
+      global $DB;
+
+      $out = [
+         'total'   => 0,
+         'buckets' => ['Critica' => 0, 'Suspeita' => 0, 'Ativa' => 0, 'Resolvida' => 0, 'Indefinida' => 0],
+         'tickets' => 0,
+         'last30'  => 0,
+         'recent'  => [],
+      ];
+
+      if (!$DB->tableExists(self::getTable())) {
+         return $out;
+      }
+
+      $cut30 = date('Y-m-d H:i:s', strtotime('-30 days'));
+
+      foreach ($DB->request([
+         'FROM'  => self::getTable(),
+         'ORDER' => ['detected_at DESC'],
+      ]) as $row) {
+         $out['total']++;
+
+         [$label] = self::severity($row);
+         $out['buckets'][$label] = ($out['buckets'][$label] ?? 0) + 1;
+
+         if (!empty($row['tickets_id'])) {
+            $out['tickets']++;
+         }
+         if (!empty($row['detected_at']) && (string)$row['detected_at'] >= $cut30) {
+            $out['last30']++;
+         }
+         if (count($out['recent']) < $recentLimit) {
+            $out['recent'][] = $row;
+         }
+      }
+
+      return $out;
+   }
+
    public static function showForAgent(string $sentineloneAgentId): void
    {
       global $DB;

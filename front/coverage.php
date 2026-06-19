@@ -79,12 +79,12 @@ $statusBadge = static function (array $summary) use ($h): string {
    $status  = (string)($summary['status'] ?? 'missing');
    $message = (string)($summary['message'] ?? '');
    $class   = match ($status) {
-      'candidate' => 'success',
-      'inventory' => 'warning',
-      default     => 'secondary',
+      'candidate' => 's1-badge--ok',
+      'inventory' => 's1-badge--warning',
+      default     => 's1-badge--muted',
    };
 
-   return "<span class='badge bg-{$class}'>" . $h($message) . "</span>";
+   return "<span class='s1-badge {$class}'>" . $h($message) . "</span>";
 };
 
 $formatDate = static function ($value) use ($h): string {
@@ -120,28 +120,51 @@ $totalUnlinked    = (int)$unlinkedSummary['agents_unlinked'];
 $totalUnprotected = (int)$unprotectedSummary['unprotected_total'];
 $totalComputers   = (int)$unprotectedSummary['computers_total'];
 
+$baseUrl = $rootDoc . '/plugins/sentinelone/front/coverage.php';
+$arrow   = "<span class='s1-stat-go'><span class='ti ti-arrow-right'></span></span>";
+$hint    = static fn(string $t): string => "<small style='display:block;margin-top:.35rem;color:var(--s1-muted);font-size:.8rem'>" . $t . "</small>";
+
 echo "<div class='sentinelone-diagnostic__stats'>";
-echo "<div class='sentinelone-diagnostic__stat'><span>" . __('Agentes SentinelOne', 'sentinelone') . "</span><strong>" . $h($totalAgents) . "</strong></div>";
-echo "<div class='sentinelone-diagnostic__stat'><span>" . __('Vinculados ao GLPI', 'sentinelone') . "</span><strong>" . $h($totalLinked) . "</strong></div>";
-echo "<div class='sentinelone-diagnostic__stat'><span>" . __('Sem vinculo', 'sentinelone') . "</span><strong style='color:#b5179e'>" . $h($totalUnlinked) . "</strong></div>";
-echo "<div class='sentinelone-diagnostic__stat'><span>" . __('Computadores GLPI', 'sentinelone') . "</span><strong>" . $h($totalComputers) . "</strong></div>";
-echo "<div class='sentinelone-diagnostic__stat'><span>" . __('Sem agente S1', 'sentinelone') . "</span><strong style='color:#d6336c'>" . $h($totalUnprotected) . "</strong></div>";
+
+echo "<a class='sentinelone-diagnostic__stat' href='" . $h($agentUrl) . "'>" . $arrow
+   . "<span>" . __('Agentes SentinelOne', 'sentinelone') . "</span><strong>" . $h($totalAgents) . "</strong>"
+   . $hint(__('total na console', 'sentinelone')) . "</a>";
+
+echo "<div class='sentinelone-diagnostic__stat sentinelone-diagnostic__stat--ok'>"
+   . "<span>" . __('Vinculados ao GLPI', 'sentinelone') . "</span><strong>" . $h($totalLinked) . "</strong>"
+   . $hint(__('com computador GLPI', 'sentinelone')) . "</div>";
+
+echo "<a class='sentinelone-diagnostic__stat sentinelone-diagnostic__stat--warning' href='" . $h($baseUrl . '?tab=unlinked') . "'>" . $arrow
+   . "<span>" . __('Sem vinculo', 'sentinelone') . "</span><strong>" . $h($totalUnlinked) . "</strong>"
+   . $hint(__('aguardam vinculo', 'sentinelone')) . "</a>";
+
+echo "<div class='sentinelone-diagnostic__stat'>"
+   . "<span>" . __('Computadores GLPI', 'sentinelone') . "</span><strong>" . $h($totalComputers) . "</strong>"
+   . $hint(__('inventario GLPI', 'sentinelone')) . "</div>";
+
+echo "<a class='sentinelone-diagnostic__stat sentinelone-diagnostic__stat--danger' href='" . $h($baseUrl . '?tab=unprotected') . "'>" . $arrow
+   . "<span>" . __('Sem agente S1', 'sentinelone') . "</span><strong>" . $h($totalUnprotected) . "</strong>"
+   . $hint(__('desprotegidos', 'sentinelone')) . "</a>";
+
 echo "</div>";
 
-// Tabs
-$baseUrl = $rootDoc . '/plugins/sentinelone/front/coverage.php';
-echo "<ul class='nav nav-tabs mb-3' style='margin-top:16px'>";
-echo "<li class='nav-item'><a class='nav-link " . ($tab === 'unlinked' ? 'active' : '') . "' href='" . $h($baseUrl . '?tab=unlinked') . "'><span class='ti ti-stethoscope'></span>&nbsp;" . __('Agentes sem vinculo', 'sentinelone') . " <span class='badge bg-secondary ms-1'>" . $h($totalUnlinked) . "</span></a></li>";
-echo "<li class='nav-item'><a class='nav-link " . ($tab === 'unprotected' ? 'active' : '') . "' href='" . $h($baseUrl . '?tab=unprotected') . "'><span class='ti ti-shield-off'></span>&nbsp;" . __('Computadores sem agente', 'sentinelone') . " <span class='badge bg-secondary ms-1'>" . $h($totalUnprotected) . "</span></a></li>";
-echo "</ul>";
+// Tabs (segmented)
+echo "<div class='s1-segment'>";
+echo "<a class='s1-segment__item " . ($tab === 'unlinked' ? 'is-active' : '') . "' href='" . $h($baseUrl . '?tab=unlinked') . "'><span class='ti ti-stethoscope'></span>" . __('Agentes sem vinculo', 'sentinelone') . " <span class='s1-segment__count'>" . $h($totalUnlinked) . "</span></a>";
+echo "<a class='s1-segment__item " . ($tab === 'unprotected' ? 'is-active' : '') . "' href='" . $h($baseUrl . '?tab=unprotected') . "'><span class='ti ti-shield-off'></span>" . __('Computadores sem agente', 'sentinelone') . " <span class='s1-segment__count'>" . $h($totalUnprotected) . "</span></a>";
+echo "</div>";
 
 // --- Tab: Agentes sem vinculo ---
 if ($tab === 'unlinked') {
-   echo "<div class='alert alert-info'>" . sprintf(__('Mostrando ate %d agentes sem vinculo. O plugin tenta casar por serial, UUID, nome completo, nome curto e MAC durante a sincronizacao.', 'sentinelone'), $diagnostics['limit']) . "</div>";
+   echo "<div class='s1-hint'><span class='ti ti-info-circle'></span><div>" . sprintf(__('Mostrando ate %d agentes sem vinculo. O plugin casa por serial, UUID, nome completo, nome curto e MAC durante a sincronizacao.', 'sentinelone'), $diagnostics['limit']) . "</div></div>";
 
-   echo "<section class='sentinelone-diagnostic__panel'>";
-   echo "<div class='sentinelone-diagnostic__panel-head'>";
-   echo "<h3>" . __('Agentes SentinelOne sem computador associado', 'sentinelone') . "</h3>";
+   echo "<section class='sentinelone-panel sentinelone-panel--wide'>";
+   echo "<div class='sentinelone-panel__head'>";
+   echo "<div class='sentinelone-panel__title'>";
+   echo "<span class='sentinelone-panel__icon'><span class='ti ti-stethoscope'></span></span>";
+   echo "<div><h3>" . __('Agentes sem computador associado', 'sentinelone') . "</h3>";
+   echo "<p>" . __('Vincule ao inventario GLPI para correlacionar ativo e protecao', 'sentinelone') . "</p></div>";
+   echo "</div>";
    echo "<div class='d-flex align-items-center gap-2'>";
    echo "<a class='btn btn-outline-secondary btn-sm' href='" . $h($baseUrl . '?tab=unlinked&export=csv') . "'><span class='ti ti-file-type-csv'></span> CSV</a>";
    if ($hasSyncRight) {
@@ -161,7 +184,7 @@ if ($tab === 'unlinked') {
    echo "</div>";
    $colCount = $hasSyncRight ? 5 : 4;
    echo "<div class='table-responsive'>";
-   echo "<table class='table table-vcenter table-hover mb-0'>";
+   echo "<table class='s1-cve-table'>";
    echo "<thead><tr>";
    echo "<th>" . __('Endpoint', 'sentinelone') . "</th>";
    echo "<th>" . __('Identificadores', 'sentinelone') . "</th>";
@@ -217,7 +240,9 @@ if ($tab === 'unlinked') {
    }
 
    if ($diagnostics['rows'] === []) {
-      echo "<tr><td colspan='" . $colCount . "' class='text-muted text-center p-4'>" . __('Nenhum agente sem vinculo encontrado.', 'sentinelone') . "</td></tr>";
+      echo "<tr><td colspan='" . $colCount . "' class='text-center' style='padding:2rem'>"
+         . "<span class='ti ti-circle-check' style='font-size:1.6rem;color:#16a34a'></span>"
+         . "<div class='s1-muted' style='margin-top:.4rem'>" . __('Todos os agentes estao vinculados a um computador GLPI.', 'sentinelone') . "</div></td></tr>";
    }
 
    echo "</tbody></table></div></section>";
@@ -226,14 +251,18 @@ if ($tab === 'unlinked') {
 // --- Tab: Computadores sem agente ---
 if ($tab === 'unprotected') {
    if ((int)$unprotectedSummary['agents_total'] === 0) {
-      echo "<div class='alert alert-warning'>" . __('Nenhum agente SentinelOne sincronizado ainda. Sincronize os agentes antes de usar este relatorio.', 'sentinelone') . "</div>";
+      echo "<div class='s1-hint s1-hint--warn'><span class='ti ti-alert-triangle'></span><div>" . __('Nenhum agente SentinelOne sincronizado ainda. Sincronize os agentes antes de usar este relatorio.', 'sentinelone') . "</div></div>";
    } else {
-      echo "<div class='alert alert-info'>" . sprintf(__('Mostrando ate %d computadores ativos sem agente SentinelOne, nas entidades visiveis para voce.', 'sentinelone'), $report['limit']) . "</div>";
+      echo "<div class='s1-hint'><span class='ti ti-info-circle'></span><div>" . sprintf(__('Mostrando ate %d computadores ativos sem agente SentinelOne, nas entidades visiveis para voce.', 'sentinelone'), $report['limit']) . "</div></div>";
    }
 
-   echo "<section class='sentinelone-diagnostic__panel'>";
-   echo "<div class='sentinelone-diagnostic__panel-head'>";
-   echo "<h3>" . __('Computadores desprotegidos', 'sentinelone') . "</h3>";
+   echo "<section class='sentinelone-panel sentinelone-panel--wide'>";
+   echo "<div class='sentinelone-panel__head'>";
+   echo "<div class='sentinelone-panel__title'>";
+   echo "<span class='sentinelone-panel__icon'><span class='ti ti-shield-off'></span></span>";
+   echo "<div><h3>" . __('Computadores desprotegidos', 'sentinelone') . "</h3>";
+   echo "<p>" . __('Ativos no GLPI sem agente SentinelOne instalado', 'sentinelone') . "</p></div>";
+   echo "</div>";
    echo "<div class='d-flex align-items-center gap-2'>";
    echo "<a class='btn btn-outline-secondary btn-sm' href='" . $h($baseUrl . '?tab=unprotected&export=csv') . "'><span class='ti ti-file-type-csv'></span> CSV</a>";
    echo "<form method='get' class='d-flex align-items-center gap-2'>";
@@ -245,7 +274,7 @@ if ($tab === 'unprotected') {
    echo "</div>";
    echo "</div>";
    echo "<div class='table-responsive'>";
-   echo "<table class='table table-vcenter table-hover mb-0'>";
+   echo "<table class='s1-cve-table'>";
    echo "<thead><tr><th>" . __('Computador', 'sentinelone') . "</th><th>" . __('Serial', 'sentinelone') . "</th><th>" . __('Entidade', 'sentinelone') . "</th><th>" . __('Ultima atualizacao', 'sentinelone') . "</th><th></th></tr></thead>";
    echo "<tbody>";
 
@@ -265,7 +294,9 @@ if ($tab === 'unprotected') {
    }
 
    if ($report['rows'] === []) {
-      echo "<tr><td colspan='5' class='text-muted text-center p-4'>" . __('Nenhum computador sem agente encontrado.', 'sentinelone') . "</td></tr>";
+      echo "<tr><td colspan='5' class='text-center' style='padding:2rem'>"
+         . "<span class='ti ti-shield-check' style='font-size:1.6rem;color:#16a34a'></span>"
+         . "<div class='s1-muted' style='margin-top:.4rem'>" . __('Todos os computadores ativos possuem agente SentinelOne.', 'sentinelone') . "</div></td></tr>";
    }
 
    echo "</tbody></table></div></section>";
