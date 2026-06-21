@@ -169,6 +169,24 @@ function plugin_sentinelone_install(): bool
             KEY `idx_severity_rank` (`severity_rank`),
             KEY `idx_cve_id` (`cve_id`)
          ) ENGINE=InnoDB DEFAULT CHARSET={$charset} COLLATE={$collation}",
+      'glpi_plugin_sentinelone_failedtickets' => "
+         CREATE TABLE `glpi_plugin_sentinelone_failedtickets` (
+            `id` int unsigned NOT NULL AUTO_INCREMENT,
+            `sentinelone_threat_id` varchar(255) DEFAULT NULL,
+            `threat_name` varchar(255) DEFAULT NULL,
+            `computer_name` varchar(255) DEFAULT NULL,
+            `payload` longtext DEFAULT NULL,
+            `agent_payload` longtext DEFAULT NULL,
+            `error` text DEFAULT NULL,
+            `attempts` int unsigned NOT NULL DEFAULT 0,
+            `status` varchar(20) NOT NULL DEFAULT 'pending',
+            `last_attempt_at` timestamp NULL DEFAULT NULL,
+            `date_creation` timestamp NULL DEFAULT NULL,
+            `date_mod` timestamp NULL DEFAULT NULL,
+            PRIMARY KEY (`id`),
+            KEY `idx_status` (`status`),
+            KEY `idx_threat` (`sentinelone_threat_id`)
+         ) ENGINE=InnoDB DEFAULT CHARSET={$charset} COLLATE={$collation}",
    ];
 
    foreach ($tables as $table => $sql) {
@@ -324,6 +342,12 @@ function plugin_sentinelone_install(): bool
       'state'     => CronTask::STATE_DISABLE,
    ]);
 
+   CronTask::register(Sync::class, 'retryfailedtickets', HOUR_TIMESTAMP, [
+      'mode'      => CronTask::MODE_EXTERNAL,
+      'allowmode' => CronTask::MODE_INTERNAL | CronTask::MODE_EXTERNAL,
+      'state'     => CronTask::STATE_DISABLE,
+   ]);
+
    // CronTask::register() nao atualiza linhas ja existentes. Para instalacoes
    // anteriores (allowmode = EXTERNAL apenas, sem o botao "Executar"), corrige
    // o allowmode das tasks ja registradas de forma idempotente.
@@ -332,7 +356,7 @@ function plugin_sentinelone_install(): bool
       ['allowmode' => CronTask::MODE_INTERNAL | CronTask::MODE_EXTERNAL],
       [
          'itemtype' => Sync::class,
-         'name'     => ['syncagents', 'syncthreats', 'syncactivities', 'syncsoftware', 'syncgroups', 'alertoffline', 'synccves', 'syncrogues', 'reportweekly', 'purgelogs'],
+         'name'     => ['syncagents', 'syncthreats', 'syncactivities', 'syncsoftware', 'syncgroups', 'alertoffline', 'synccves', 'syncrogues', 'reportweekly', 'purgelogs', 'retryfailedtickets'],
       ]
    );
 
@@ -351,6 +375,7 @@ function plugin_sentinelone_uninstall(): bool
       'glpi_plugin_sentinelone_threats',
       'glpi_plugin_sentinelone_cves',
       'glpi_plugin_sentinelone_rogue_devices',
+      'glpi_plugin_sentinelone_failedtickets',
       'glpi_plugin_sentinelone_agents',
       'glpi_plugin_sentinelone_groups',
       'glpi_plugin_sentinelone_configs',

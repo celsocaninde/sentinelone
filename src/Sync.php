@@ -42,6 +42,9 @@ class Sync
          'purgelogs' => [
             'description' => 'Remove logs antigos do plugin SentinelOne conforme politica de retencao configurada',
          ],
+         'retryfailedtickets' => [
+            'description' => 'Reprocessa tickets de ameaca que falharam ao serem criados (fila de retry)',
+         ],
       ];
 
       return $info[strtolower($name)] ?? [];
@@ -225,7 +228,251 @@ class Sync
       return true;
    }
 
+   /**
+    * Sonda cada modulo da API SentinelOne com uma chamada minima (limit=1) e
+    * reporta se o token tem acesso (200), se foi negado (403) ou se houve outro
+    * erro. Util para diagnosticar "por que tal sync nao traz nada" — tipicamente
+    * token sem escopo de Ranger (rogues) ou Vulnerability Management (CVEs).
+    *
+    * @return array{configured:bool, modules:array<int,array{name:string,ok:bool,status:string,detail:string,ms:int}>}
+    */
+   public static function checkPermissions(): array
+   {
+      $config = Config::getConfig();
+
+      if (!Config::isConfigured($config)) {
+         return ['configured' => false, 'modules' => []];
+      }
+
+      // Cliente fail-fast (timeout curto, sem retry): o probe deve responder
+      // rapido para nao travar o painel quando um modulo erra ou demora.
+      $client = ApiClient::probe($config);
+
+      $probes = [
+         'Agentes'                  => static fn() => $client->getAgents(['limit' => 1], 1),
+         'Ameacas'                  => static fn() => $client->getThreats(['limit' => 1], 1),
+         'Atividades'               => static fn() => $client->getActivities(['limit' => 1], 1),
+         'Grupos'                   => static fn() => $client->getGroups(['limit' => 1], 1),
+         'Aplicacoes / CVE (Vuln.)' => static fn() => $client->getRiskyApplications(['limit' => 1], 1),
+         'Rogues (Ranger)'          => static fn() => $client->getRogueDevices(['limit' => 1], 1),
+      ];
+
+      $modules = [];
+      foreach ($probes as $name => $probe) {
+         $start = microtime(true);
+         try {
+            $probe();
+            $modules[] = [
+               'name'   => $name,
+               'ok'     => true,
+               'status' => 'OK',
+               'detail' => '',
+               'ms'     => (int)round((microtime(true) - $start) * 1000),
+            ];
+         } catch (\Throwable $error) {
+            $msg = $error->getMessage();
+            $forbidden = str_contains($msg, '403') || stripos($msg, 'permission') !== false;
+            $modules[] = [
+               'name'   => $name,
+               'ok'     => false,
+               'status' => $forbidden ? 'Sem permissao (403)' : 'Erro',
+               'detail' => $msg,
+               'ms'     => (int)round((microtime(true) - $start) * 1000),
+            ];
+         }
+      }
+
+      return ['configured' => true, 'modules' => $modules];
+   }
+
+   // ---- Wrappers com lock (impedem execucoes sobrepostas: cron x manual) ----
+   // O cron do GLPI ja serializa a mesma tarefa; o lock cobre o caso de um
+   // disparo manual (sync.form.php) coincidir com o cron, ou vice-versa.
+
+   public static function syncThreats(): array
+   {
+      return self::withLock('syncthreats', static fn(): array => self::syncThreatsImpl(), [
+         'processed' => 0, 'created' => 0, 'updated' => 0, 'tickets' => 0, 'tickets_closed' => 0, 'status' => 'locked',
+      ]);
+   }
+
+   public static function syncAgents(): array
+   {
+      return self::withLock('syncagents', static fn(): array => self::syncAgentsImpl(), [
+         'processed' => 0, 'created' => 0, 'updated' => 0, 'status' => 'locked',
+      ]);
+   }
+
+   public static function syncActivities(): array
+   {
+      return self::withLock('syncactivities', static fn(): array => self::syncActivitiesImpl(), [
+         'processed' => 0, 'created' => 0, 'status' => 'locked',
+      ]);
+   }
+
    public static function syncGroups(): array
+   {
+      return self::withLock('syncgroups', static fn(): array => self::syncGroupsImpl(), [
+         'processed' => 0, 'updated' => 0, 'status' => 'locked',
+      ]);
+   }
+
+   /**
+    * Executa $fn sob um lock nomeado do MariaDB (GET_LOCK). Se o lock ja estiver
+    * tomado por outra execucao, registra "skipped" e devolve $skippedResult sem
+    * rodar. O lock e por conexao e e liberado no finally (e tambem ao encerrar o
+    * processo/requisicao, como rede de seguranca).
+    *
+    * @param array<string,mixed> $skippedResult
+    * @return array<string,mixed>
+    */
+   private static function withLock(string $key, callable $fn, array $skippedResult): array
+   {
+      global $DB;
+
+      $lockName = $DB->quote('glpi_s1_' . $key);
+
+      $result = $DB->doQuery("SELECT GET_LOCK({$lockName}, 0) AS locked");
+      $acquired = $result && (int)(($result->fetch_assoc()['locked']) ?? 0) === 1;
+
+      if (!$acquired) {
+         Log::record($key, 'skipped', 'Sincronizacao ignorada: outra execucao ja esta em andamento (lock ativo).');
+         return $skippedResult;
+      }
+
+      try {
+         return $fn();
+      } finally {
+         $DB->doQuery("SELECT RELEASE_LOCK({$lockName})");
+      }
+   }
+
+   public static function isSyncLocked(string $key): bool
+   {
+      global $DB;
+
+      $lockName = $DB->quote('glpi_s1_' . $key);
+      // IS_FREE_LOCK = 1 (livre), 0 (tomado), NULL (erro)
+      $result = $DB->doQuery("SELECT IS_FREE_LOCK({$lockName}) AS free");
+      if (!$result) {
+         return false;
+      }
+      $free = $result->fetch_assoc()['free'] ?? null;
+
+      return $free !== null && (int)$free === 0;
+   }
+
+   public static function retryFailedTickets(): array
+   {
+      return self::withLock('retryfailedtickets', static fn(): array => self::retryFailedTicketsImpl(), [
+         'processed' => 0, 'resolved' => 0, 'failed' => 0, 'status' => 'locked',
+      ]);
+   }
+
+   private static function retryFailedTicketsImpl(): array
+   {
+      $config = Config::getConfig();
+      if (!Config::isConfigured($config)) {
+         return ['processed' => 0, 'resolved' => 0, 'failed' => 0, 'status' => 'not_configured'];
+      }
+
+      $pending  = FailedTicket::getPending(50);
+      $resolved = 0;
+      $failed   = 0;
+
+      foreach ($pending as $row) {
+         $id       = (int)$row['id'];
+         $attempts = (int)($row['attempts'] ?? 0) + 1;
+
+         $threat = json_decode((string)($row['payload'] ?? ''), true);
+         if (!is_array($threat)) {
+            FailedTicket::registerFailure($id, $attempts, 'Payload invalido (JSON nao decodificavel).');
+            $failed++;
+            continue;
+         }
+
+         $agent = null;
+         if (!empty($row['agent_payload'])) {
+            $decoded = json_decode((string)$row['agent_payload'], true);
+            if (is_array($decoded)) {
+               $agent = $decoded;
+            }
+         }
+
+         // A ameaca pode ter ganhado um ticket num sync posterior; nao duplicar.
+         $threatId = (string)($threat['sentinelone_threat_id'] ?? '');
+         $existing = self::ticketIdForThreat($threatId);
+         if ($existing > 0) {
+            FailedTicket::markResolved($id, $existing);
+            $resolved++;
+            continue;
+         }
+
+         try {
+            $ticketId = TicketManager::createForThreat($threat, $agent, $config);
+            if ($ticketId > 0) {
+               self::attachTicketToThreat($threatId, $ticketId);
+               if ((string)($config['ticket_threat_details'] ?? '1') === '1') {
+                  try {
+                     TicketManager::addThreatDetailsFollowup($ticketId, $threat, $agent, $config);
+                  } catch (\Throwable) {
+                     // nota forense e opcional
+                  }
+               }
+               FailedTicket::markResolved($id, $ticketId);
+               $resolved++;
+            } else {
+               FailedTicket::registerFailure($id, $attempts, 'createForThreat retornou 0.');
+               $failed++;
+            }
+         } catch (\Throwable $error) {
+            FailedTicket::registerFailure($id, $attempts, $error->getMessage());
+            $failed++;
+         }
+      }
+
+      if ($resolved > 0 || $failed > 0) {
+         Log::record('retryfailedtickets', 'ok', "Retry da fila: {$resolved} resolvido(s), {$failed} ainda pendente(s).", $resolved);
+      }
+
+      return ['processed' => count($pending), 'resolved' => $resolved, 'failed' => $failed, 'status' => 'ok'];
+   }
+
+   private static function ticketIdForThreat(string $threatId): int
+   {
+      global $DB;
+
+      if ($threatId === '') {
+         return 0;
+      }
+
+      foreach ($DB->request([
+         'SELECT' => ['tickets_id'],
+         'FROM'   => Threat::getTable(),
+         'WHERE'  => ['sentinelone_threat_id' => $threatId],
+         'LIMIT'  => 1,
+      ]) as $row) {
+         return (int)($row['tickets_id'] ?? 0);
+      }
+
+      return 0;
+   }
+
+   private static function attachTicketToThreat(string $threatId, int $ticketId): void
+   {
+      global $DB;
+
+      if ($threatId === '') {
+         return;
+      }
+
+      $DB->update(Threat::getTable(), [
+         'tickets_id' => $ticketId,
+         'date_mod'   => date('Y-m-d H:i:s'),
+      ], ['sentinelone_threat_id' => $threatId]);
+   }
+
+   private static function syncGroupsImpl(): array
    {
       global $DB;
 
@@ -239,6 +486,7 @@ class Sync
       $client  = ApiClient::fromConfig($config);
       $groups  = $client->getGroups([], 5);
       $updated = 0;
+      $drift   = [];
       $now     = date('Y-m-d H:i:s');
 
       foreach ($groups as $raw) {
@@ -263,6 +511,11 @@ class Sync
             }
          } catch (\Throwable) {
             // policy endpoint may require extra permissions; keep 'unknown'
+         }
+
+         // Policy drift: grupos sem bloqueio automatico (Detect / None) sao um risco.
+         if (in_array($policyMode, ['detect', 'none'], true)) {
+            $drift[] = ($name !== '' ? $name : $sid) . ' (' . $policyMode . ')';
          }
 
          $existingId = null;
@@ -297,7 +550,13 @@ class Sync
 
       Log::record('syncgroups', 'ok', 'Sincronizacao de grupos concluida.', count($groups));
 
-      return ['processed' => count($groups), 'updated' => $updated];
+      // Alerta de policy drift: registra (e espelha em sentinelone.log) quando ha
+      // grupos sem mitigacao automatica — eles so detectam, nao bloqueiam.
+      if ($drift !== []) {
+         Log::record('syncgroups', 'warning', count($drift) . ' grupo(s) sem bloqueio automatico (modo Detect/None): ' . implode(', ', array_slice($drift, 0, 20)) . '.', count($drift));
+      }
+
+      return ['processed' => count($groups), 'updated' => $updated, 'drift' => count($drift)];
    }
 
    public static function quarantineAgent(int $agentId): bool
@@ -689,7 +948,7 @@ class Sync
       }
    }
 
-   public static function syncActivities(): array
+   private static function syncActivitiesImpl(): array
    {
       $config = Config::getConfig();
 
@@ -722,7 +981,7 @@ class Sync
       return ['processed' => count($activities), 'created' => $created];
    }
 
-   public static function syncAgents(): array
+   private static function syncAgentsImpl(): array
    {
       $config = Config::getConfig();
 
@@ -780,7 +1039,7 @@ class Sync
       return ['processed' => count($agents), 'created' => $created, 'updated' => $updated];
    }
 
-   public static function syncThreats(): array
+   private static function syncThreatsImpl(): array
    {
       $config = Config::getConfig();
 
@@ -850,6 +1109,22 @@ class Sync
          return 1;
       } catch (\Throwable $error) {
          Log::record('reportweekly', 'error', $error->getMessage());
+         return 0;
+      }
+   }
+
+   public static function cronRetryfailedtickets(?\CronTask $task = null): int
+   {
+      try {
+         $result = self::retryFailedTickets();
+
+         if ($task !== null) {
+            $task->addVolume((int)($result['resolved'] ?? 0));
+         }
+
+         return 1;
+      } catch (\Throwable $error) {
+         Log::record('retryfailedtickets', 'error', $error->getMessage());
          return 0;
       }
    }
@@ -1440,10 +1715,28 @@ class Sync
             }
          }
 
-         // 3. Ainda sem ticket: primeira ameaca ativa no endpoint, cria o ticket
+         // 3. Ainda sem ticket: primeira ameaca ativa no endpoint, cria o ticket.
+         //    Falha aqui NAO aborta o sync inteiro: a ameaca vai para a fila de
+         //    retry (dead-letter) e e reprocessada depois.
          if (empty($data['tickets_id']) && self::shouldCreateTicket($data, $config)) {
-            $data['tickets_id'] = TicketManager::createForThreat($data, $agent, $config);
-            $ticketCreated = true;
+            try {
+               $data['tickets_id'] = TicketManager::createForThreat($data, $agent, $config);
+               $ticketCreated = true;
+
+               // Nota interna com os detalhes forenses do SentinelOne, logo apos abrir o ticket.
+               if ((string)($config['ticket_threat_details'] ?? '1') === '1') {
+                  try {
+                     TicketManager::addThreatDetailsFollowup((int)$data['tickets_id'], $data, $agent, $config);
+                  } catch (\Throwable $error) {
+                     Log::record('syncthreats', 'error', 'Falha ao adicionar nota de detalhes da ameaca: ' . $error->getMessage());
+                  }
+               }
+            } catch (\Throwable $error) {
+               FailedTicket::record($data, $agent, $error->getMessage());
+               Log::record('syncthreats', 'error', 'Falha ao criar ticket para ameaca '
+                  . (string)($data['sentinelone_threat_id'] ?? '?') . ': ' . $error->getMessage()
+                  . ' — enfileirada para retry.');
+            }
          }
       }
 

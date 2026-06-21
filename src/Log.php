@@ -15,6 +15,11 @@ class Log extends \CommonDBTM
    {
       global $DB;
 
+      // Espelha erros/avisos no log nativo do GLPI (files/_log/sentinelone.log).
+      // Permite diagnosticar falhas direto pelo arquivo de log padrao do GLPI,
+      // mesmo quando o sync roda via cron ou a tabela de logs ainda nao existe.
+      self::mirrorToGlpiLog($action, $status, $message);
+
       $table = self::getTable();
 
       if (!$DB->tableExists($table)) {
@@ -29,6 +34,32 @@ class Log extends \CommonDBTM
          'items_count'   => $itemsCount,
          'date_creation' => date('Y-m-d H:i:s'),
       ]);
+   }
+
+   /**
+    * Escreve erros e avisos no arquivo files/_log/sentinelone.log do GLPI, via
+    * Toolbox::logInFile (forcado, para gravar mesmo com log_in_files desativado).
+    * Falhas aqui nunca devem interromper a sincronizacao.
+    */
+   private static function mirrorToGlpiLog(string $action, string $status, string $message): void
+   {
+      if (!in_array(strtolower($status), ['error', 'warning', 'critical'], true)) {
+         return;
+      }
+
+      if (!class_exists(\Toolbox::class) || !method_exists(\Toolbox::class, 'logInFile')) {
+         return;
+      }
+
+      try {
+         \Toolbox::logInFile(
+            'sentinelone',
+            strtoupper($status) . " [{$action}] " . $message . "\n",
+            true
+         );
+      } catch (\Throwable $error) {
+         // log de diagnostico nao pode quebrar o fluxo principal
+      }
    }
 
    public static function getRecent(int $limit = 10): array

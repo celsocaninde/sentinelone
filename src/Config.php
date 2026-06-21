@@ -48,11 +48,13 @@ class Config extends \CommonGLPI
          'entity_id'            => '0',
          'create_tickets'       => '0',
          'auto_close_tickets'   => '1',
+         'ticket_threat_details' => '1',
          'sync_threat_notes'    => '0',
          'ticket_status_filter' => '',
          'ticket_classification_filter' => '',
          'ticket_category_id'   => '0',
          'ticket_requester_id'  => '0',
+         'ticket_auto_priority' => '1',
          'ticket_urgency'       => '4',
          'ticket_impact'        => '4',
          'ticket_priority'      => '4',
@@ -208,11 +210,13 @@ class Config extends \CommonGLPI
       $config['entity_id'] = (string)max(0, (int)($input['entity_id'] ?? 0));
       $config['create_tickets'] = self::boolInput($input, 'create_tickets');
       $config['auto_close_tickets'] = self::boolInput($input, 'auto_close_tickets');
+      $config['ticket_threat_details'] = self::boolInput($input, 'ticket_threat_details');
       $config['sync_threat_notes'] = self::boolInput($input, 'sync_threat_notes');
       $config['ticket_status_filter'] = self::cleanList($input['ticket_status_filter'] ?? '');
       $config['ticket_classification_filter'] = self::cleanList($input['ticket_classification_filter'] ?? '');
       $config['ticket_category_id'] = (string)max(0, (int)($input['ticket_category_id'] ?? 0));
       $config['ticket_requester_id'] = (string)max(0, (int)($input['ticket_requester_id'] ?? 0));
+      $config['ticket_auto_priority'] = self::boolInput($input, 'ticket_auto_priority');
       $config['ticket_urgency'] = (string)max(1, min(5, (int)($input['ticket_urgency'] ?? 4)));
       $config['ticket_impact'] = (string)max(1, min(5, (int)($input['ticket_impact'] ?? 4)));
       $config['ticket_priority'] = (string)max(1, min(6, (int)($input['ticket_priority'] ?? 4)));
@@ -337,6 +341,7 @@ class Config extends \CommonGLPI
       echo "<div class='sentinelone-panel__body sentinelone-fields'>";
       self::renderYesNo('create_tickets', __('Criar tickets para ameacas', 'sentinelone'), (string)$config['create_tickets'] === '1', $canUpdate, __('Interruptor geral dos tickets de ameaca. Precisa de pelo menos uma regra abaixo.', 'sentinelone'));
       self::renderYesNo('auto_close_tickets', __('Fechar tickets quando ameaca for resolvida', 'sentinelone'), (string)($config['auto_close_tickets'] ?? '1') === '1', $canUpdate, __('Quando o SentinelOne marcar a ameaca como mitigada/resolvida, o ticket correspondente e marcado como Solucionado com uma nota de resolucao.', 'sentinelone'));
+      self::renderYesNo('ticket_threat_details', __('Postar nota forense detalhada ao abrir o ticket', 'sentinelone'), (string)($config['ticket_threat_details'] ?? '1') === '1', $canUpdate, __('Logo apos abrir o ticket, adiciona uma nota interna (privada) com os detalhes forenses da ameaca: processo e linha de comando, engine de deteccao, editor/assinatura, IP/usuario logado, acoes de mitigacao e MITRE ATT&CK.', 'sentinelone'));
       self::renderYesNo('sync_threat_notes', __('Sincronizar notas da console como comentarios no ticket', 'sentinelone'), (string)($config['sync_threat_notes'] ?? '0') === '1', $canUpdate, __('Para cada ameaca com ticket aberto, busca as notas da console SentinelOne e adiciona como acompanhamentos no GLPI. Aumenta o volume de chamadas a API.', 'sentinelone'));
       self::renderYesNo('write_antivirus', __('Registrar como antivirus do computador', 'sentinelone'), (string)$config['write_antivirus'] === '1', $canUpdate, __('Grava o SentinelOne na aba Antivirus de cada computador vinculado.', 'sentinelone'));
       self::renderYesNo('sync_activities', __('Sincronizar feed de atividades dos agentes', 'sentinelone'), (string)($config['sync_activities'] ?? '0') === '1', $canUpdate, __('Busca as ultimas atividades (eventos) dos agentes na console SentinelOne e exibe na aba do computador. Aumenta o volume de chamadas a API.', 'sentinelone'));
@@ -375,9 +380,13 @@ class Config extends \CommonGLPI
       self::renderTicketCategoryDropdown('ticket_category_id', __('Categoria GLPI do ticket', 'sentinelone'), (int)$config['ticket_category_id'], $canUpdate);
       self::renderUserDropdown('ticket_requester_id', __('Usuario solicitante (integracao)', 'sentinelone'), (int)$config['ticket_requester_id'], $canUpdate, __('Todos os tickets abrem com este usuario como solicitante/autor. Crie um usuario dedicado (ex.: "integracao") para identificar os chamados do plugin.', 'sentinelone'));
       self::renderGroupDropdown('ticket_group_id', __('Grupo responsavel (atribuicao)', 'sentinelone'), (int)($config['ticket_group_id'] ?? 0), $canUpdate, __('Grupo GLPI atribuido como responsavel em todos os tickets criados pelo plugin. Deixe em branco para nao atribuir.', 'sentinelone'));
-      self::renderSelectFromArray('ticket_urgency', __('Urgencia', 'sentinelone'), self::ticketScaleOptions(false), (int)$config['ticket_urgency'], $canUpdate);
+      self::renderYesNo('ticket_auto_priority', __('Prioridade automatica pela severidade', 'sentinelone'), (string)($config['ticket_auto_priority'] ?? '1') === '1', $canUpdate, __('Define urgencia/impacto/prioridade do ticket conforme a severidade da ameaca (Critica > Suspeita > Ativa). Quando desligado, usa os valores fixos abaixo.', 'sentinelone'));
+      self::renderSelectFromArray('ticket_urgency', __('Urgencia (quando prioridade automatica desligada)', 'sentinelone'), self::ticketScaleOptions(false), (int)$config['ticket_urgency'], $canUpdate);
       self::renderSelectFromArray('ticket_impact', __('Impacto', 'sentinelone'), self::ticketScaleOptions(false), (int)$config['ticket_impact'], $canUpdate);
       self::renderSelectFromArray('ticket_priority', __('Prioridade', 'sentinelone'), self::ticketScaleOptions(true), (int)$config['ticket_priority'], $canUpdate);
+      global $CFG_GLPI;
+      $previewUrl = (string)($CFG_GLPI['root_doc'] ?? '') . '/plugins/sentinelone/front/ticket_preview.php';
+      echo "<div class='sentinelone-field'><a class='btn btn-sm btn-outline-primary' href='" . self::h($previewUrl) . "' target='_blank' rel='noopener'><span class='ti ti-eye'></span> " . __('Pre-visualizar HTML do ticket', 'sentinelone') . "</a></div>";
       echo "</div>";
       echo "</section>";
 

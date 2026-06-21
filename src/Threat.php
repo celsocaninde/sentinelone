@@ -356,9 +356,16 @@ class Threat extends \CommonDBTM
                continue;
             }
             try {
-               $ticket = TicketManager::createForThreat($row, $config);
+               $ticket = TicketManager::createForThreat($row, null, $config);
                if ($ticket > 0) {
                   $DB->update(self::getTable(), ['tickets_id' => $ticket, 'date_mod' => date('Y-m-d H:i:s')], ['id' => (int)$id]);
+                  if ((string)($config['ticket_threat_details'] ?? '1') === '1') {
+                     try {
+                        TicketManager::addThreatDetailsFollowup($ticket, $row, null, $config);
+                     } catch (\Throwable) {
+                        // nota forense e opcional; nao deve reprovar a abertura do ticket
+                     }
+                  }
                   $ok++;
                } else {
                   $ko++;

@@ -9,19 +9,40 @@ class ApiClient
    private string $authScheme;
    private string $token;
    private int $timeout;
+   private int $maxRetries;
 
    public function __construct(
       string $baseUrl,
       string $token,
       string $basePath = '/web/api/v2.1',
       string $authScheme = 'ApiToken',
-      int $timeout = 30
+      int $timeout = 30,
+      int $maxRetries = 3
    ) {
       $this->baseUrl = rtrim($baseUrl, '/');
       $this->basePath = '/' . trim($basePath, '/');
       $this->authScheme = trim($authScheme) ?: 'ApiToken';
       $this->token = $token;
       $this->timeout = max(5, min(120, $timeout));
+      $this->maxRetries = max(0, min(5, $maxRetries));
+   }
+
+   /**
+    * Cliente "fail-fast" para sondagens (ex.: verificacao de permissoes): timeout
+    * curto e sem retry, para nao travar a UI quando um modulo demora ou erra.
+    */
+   public static function probe(?array $config = null): self
+   {
+      $config ??= Config::getConfig();
+
+      return new self(
+         (string)$config['base_url'],
+         (string)$config['api_token'],
+         (string)$config['base_path'],
+         (string)$config['auth_scheme'],
+         8,
+         0
+      );
    }
 
    public static function fromConfig(?array $config = null): self
@@ -241,7 +262,7 @@ class ApiClient
          'Authorization: ' . $this->authScheme . ' ' . $this->token,
       ];
 
-      $maxRetries = 3;
+      $maxRetries = $this->maxRetries;
       $delay      = 1;
       $last       = null;
 
