@@ -16,6 +16,11 @@ class Agent extends \CommonDBTM
       return 'SentinelOne';
    }
 
+   public static function canView(): bool
+   {
+      return Profile::hasReadRight();
+   }
+
    public static function getFormURL($full = true): string
    {
       global $CFG_GLPI;
@@ -31,6 +36,10 @@ class Agent extends \CommonDBTM
    public static function getMenuContent(): array
    {
       global $CFG_GLPI;
+
+      if (!self::canView()) {
+         return [];
+      }
 
       return [
          'title' => self::getMenuName(),
