@@ -2613,7 +2613,14 @@ class Sync
       }
 
       try {
-         return (new \DateTimeImmutable((string)$value))->format('Y-m-d H:i:s');
+         // A API SentinelOne devolve timestamps em UTC (sufixo Z). Convertemos
+         // para o fuso configurado no sistema (date_default_timezone_get) antes
+         // de formatar, para ficar consistente com o resto do plugin, que grava
+         // em hora local via date(). Sem isto, detected_at ficava em UTC e
+         // aparecia adiantado (ex.: ~4h no horario de Campo Grande, UTC-4).
+         return (new \DateTimeImmutable((string)$value))
+            ->setTimezone(new \DateTimeZone(date_default_timezone_get()))
+            ->format('Y-m-d H:i:s');
       } catch (\Throwable $error) {
          return null;
       }
