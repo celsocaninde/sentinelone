@@ -245,6 +245,7 @@ class Config extends \CommonGLPI
       $config['sync_date_from'] = self::cleanDate($input['sync_date_from'] ?? '');
       $config['agent_inactive_days'] = (string)max(0, min(3650, (int)($input['agent_inactive_days'] ?? 0)));
       $config['log_retention_days'] = (string)max(30, min(3650, (int)($input['log_retention_days'] ?? 90)));
+      $config['token_expires_at'] = self::cleanDate($input['token_expires_at'] ?? '');
 
       $token = trim((string)($input['api_token'] ?? ''));
       if ($token !== '' || !$keepExistingToken) {
@@ -364,7 +365,7 @@ class Config extends \CommonGLPI
       self::renderPreset('auth_scheme', __('Autenticacao', 'sentinelone'), self::authSchemePresets(), (string)$config['auth_scheme'], __('ApiToken atende a maioria dos tenants SentinelOne.', 'sentinelone'), $canUpdate, 'ApiToken');
       self::renderPassword('api_token', __('Token da API', 'sentinelone'), $tokenStatus, $canUpdate);
       self::renderNumber('timeout', __('Timeout HTTP em segundos', 'sentinelone'), (int)$config['timeout'], 5, 120, $canUpdate, __('Tempo maximo de espera por resposta da API.', 'sentinelone'));
-      self::renderTokenExpiry($config);
+      self::renderTokenExpiry($config, $canUpdate);
       self::renderText('console_threat_path', __('Deep link de ameaca (opcional, use {threatId})', 'sentinelone'), (string)$config['console_threat_path'], '/incidents/threats/{threatId}/overview', $canUpdate, true, __('Abre a ameaca direto na console. Vazio = sem link.', 'sentinelone'));
       self::renderText('console_endpoint_path', __('Deep link de endpoint (opcional, use {agentId})', 'sentinelone'), (string)$config['console_endpoint_path'], '/inventory/devices/{agentId}', $canUpdate, true, __('Abre o endpoint direto na console. Vazio = sem link.', 'sentinelone'));
       echo "</div>";
@@ -486,36 +487,45 @@ class Config extends \CommonGLPI
       echo "</label>";
    }
 
-   private static function renderTokenExpiry(array $config): void
+   private static function renderTokenExpiry(array $config, bool $canUpdate = true): void
    {
       $expiresAt = trim((string)($config['token_expires_at'] ?? ''));
       $days = self::getTokenExpiryDays($config);
 
-      echo "<div class='sentinelone-field sentinelone-field--wide' id='s1-token-expiry-row'>";
+      echo "<div class='sentinelone-field sentinelone-field--wide'>";
       echo "<span>" . __('Validade do token', 'sentinelone') . "</span>";
-      echo "<div class='sentinelone-field__control'>";
+      echo "<div class='sentinelone-field__control' style='display:flex;gap:.6rem;align-items:center;flex-wrap:wrap'>";
 
+      // Badge de status
       if ($days === null) {
          echo "<span class='s1-token-expiry s1-token-expiry--unknown'>"
             . "<span class='ti ti-calendar-question'></span> "
-            . __('Nao disponivel — teste a conexao para buscar automaticamente.', 'sentinelone')
+            . __('Nao disponivel', 'sentinelone')
             . "</span>";
       } elseif ($days < 0) {
          echo "<span class='s1-token-expiry s1-token-expiry--expired'>"
             . "<span class='ti ti-calendar-x'></span> "
-            . __('TOKEN EXPIRADO', 'sentinelone') . " (" . self::h($expiresAt) . ")"
+            . __('TOKEN EXPIRADO', 'sentinelone')
             . "</span>";
       } else {
          $cssClass = $days <= 7 ? 'critical' : ($days <= 30 ? 'warn' : 'ok');
          $icon = $days <= 7 ? 'ti-calendar-exclamation' : ($days <= 30 ? 'ti-calendar-stats' : 'ti-calendar-check');
          echo "<span class='s1-token-expiry s1-token-expiry--{$cssClass}'>"
             . "<span class='ti {$icon}'></span> "
-            . sprintf(__('%d dias restantes (vence em %s)', 'sentinelone'), $days, $expiresAt)
+            . sprintf(_n('%d dia restante', '%d dias restantes', $days, 'sentinelone'), $days)
             . "</span>";
       }
 
+      // Campo de data manual
+      echo "<input class='form-control' style='width:160px' type='date' "
+         . "name='token_expires_at' "
+         . "value='" . self::h($expiresAt) . "'"
+         . ($canUpdate ? '' : ' disabled')
+         . " title='" . __('Data de expiracao do token (preenchida automaticamente ao testar conexao ou manualmente)', 'sentinelone') . "'"
+         . ">";
+
       echo "</div>";
-      echo "<small>" . __('Buscado automaticamente ao testar a conexao. Atualize o token antes de vencer.', 'sentinelone') . "</small>";
+      echo "<small>" . __('Preenchida automaticamente ao testar conexao. Se a API nao retornar, informe manualmente a data de vencimento do token.', 'sentinelone') . "</small>";
       echo "</div>";
    }
 
