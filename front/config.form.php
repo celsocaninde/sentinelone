@@ -29,15 +29,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
          $sendJson($result);
       } elseif ($isTest) {
          $config = Config::buildConfigFromInput($_POST);
-         $response = ApiClient::fromConfig($config)->testConnection();
+         $client = ApiClient::fromConfig($config);
+         $response = $client->testConnection();
          $durationMs = max(1, (int)round((microtime(true) - $startedAt) * 1000));
          $status = (int)($response['_http_status'] ?? 0);
 
+         // Tenta buscar a validade do token e persiste se encontrar.
+         $tokenExpiry = null;
+         try {
+            $tokenExpiry = $client->getTokenExpiry();
+            if ($tokenExpiry !== null) {
+               Config::saveTokenExpiry($tokenExpiry);
+            }
+         } catch (\Throwable $ignored) {}
+
+         $expiryDays = Config::getTokenExpiryDays();
+
          $payload = [
-            'ok'          => true,
-            'duration_ms' => $durationMs,
-            'status'      => $status,
-            'message'     => 'Conexao OK em ' . $durationMs . ' ms.',
+            'ok'           => true,
+            'duration_ms'  => $durationMs,
+            'status'       => $status,
+            'message'      => 'Conexao OK em ' . $durationMs . ' ms.',
+            'expiry_days'  => $expiryDays,
+            'expiry_date'  => $tokenExpiry !== null ? date('Y-m-d', (int)strtotime($tokenExpiry)) : null,
          ];
 
          if ($isAjaxTest) {

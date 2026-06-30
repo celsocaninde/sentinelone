@@ -41,6 +41,7 @@ class Dashboard
          'plugin_sentinelone_computers_unprotected' => 'cardComputersUnprotected',
          'plugin_sentinelone_groups_risky'          => 'cardGroupsRisky',
          'plugin_sentinelone_rogue_devices'         => 'cardRogueDevices',
+         'plugin_sentinelone_token_expiry'          => 'cardTokenExpiry',
       ];
 
       $labels = [
@@ -54,6 +55,7 @@ class Dashboard
          'plugin_sentinelone_computers_unprotected' => 'SentinelOne - Computadores sem agente',
          'plugin_sentinelone_groups_risky'          => 'SentinelOne - Grupos sem protecao plena',
          'plugin_sentinelone_rogue_devices'         => 'SentinelOne - Dispositivos rogues',
+         'plugin_sentinelone_token_expiry'          => 'SentinelOne - Dias restantes do token',
       ];
 
       foreach ($defs as $key => $method) {
@@ -178,6 +180,22 @@ class Dashboard
          'Dispositivos rogues (Ranger)',
          'ti ti-ghost',
          self::frontUrl('rogues.php')
+      );
+   }
+
+   public static function cardTokenExpiry(array $params = []): array
+   {
+      $days = Config::getTokenExpiryDays();
+      $value = $days !== null ? max(0, $days) : 0;
+      $label = $days === null
+         ? 'Token — validade desconhecida'
+         : ($days < 0 ? 'Token EXPIRADO' : 'Dias restantes do token');
+
+      return self::bigNumber(
+         $value,
+         $label,
+         'ti ti-key',
+         self::frontUrl('config.form.php')
       );
    }
 

@@ -78,6 +78,7 @@ class Config extends \CommonGLPI
          'sync_date_from'       => '',
          'agent_inactive_days'  => '0',
          'log_retention_days'   => '90',
+         'token_expires_at'     => '',
       ];
    }
 
@@ -253,6 +254,37 @@ class Config extends \CommonGLPI
       return $config;
    }
 
+   /**
+    * Persiste a data de expiracao do token obtida via API.
+    * @param string $isoDate ISO-8601 retornado pela API (ex: "2026-08-15T00:00:00Z")
+    */
+   public static function saveTokenExpiry(string $isoDate): void
+   {
+      $ts = strtotime($isoDate);
+      if ($ts === false) {
+         return;
+      }
+      \Config::setConfigurationValues(self::CONTEXT, ['token_expires_at' => date('Y-m-d', $ts)]);
+   }
+
+   /**
+    * Retorna quantos dias faltam para o token expirar, ou null se nao configurado.
+    * Valor negativo = ja expirou.
+    */
+   public static function getTokenExpiryDays(?array $config = null): ?int
+   {
+      $config ??= self::getConfig();
+      $raw = trim((string)($config['token_expires_at'] ?? ''));
+      if ($raw === '') {
+         return null;
+      }
+      $ts = strtotime($raw);
+      if ($ts === false) {
+         return null;
+      }
+      return (int)floor(($ts - time()) / 86400);
+   }
+
    public static function saveFromInput(array $input): void
    {
       $config = self::buildConfigFromInput($input);
@@ -332,6 +364,7 @@ class Config extends \CommonGLPI
       self::renderPreset('auth_scheme', __('Autenticacao', 'sentinelone'), self::authSchemePresets(), (string)$config['auth_scheme'], __('ApiToken atende a maioria dos tenants SentinelOne.', 'sentinelone'), $canUpdate, 'ApiToken');
       self::renderPassword('api_token', __('Token da API', 'sentinelone'), $tokenStatus, $canUpdate);
       self::renderNumber('timeout', __('Timeout HTTP em segundos', 'sentinelone'), (int)$config['timeout'], 5, 120, $canUpdate, __('Tempo maximo de espera por resposta da API.', 'sentinelone'));
+      self::renderTokenExpiry($config);
       self::renderText('console_threat_path', __('Deep link de ameaca (opcional, use {threatId})', 'sentinelone'), (string)$config['console_threat_path'], '/incidents/threats/{threatId}/overview', $canUpdate, true, __('Abre a ameaca direto na console. Vazio = sem link.', 'sentinelone'));
       self::renderText('console_endpoint_path', __('Deep link de endpoint (opcional, use {agentId})', 'sentinelone'), (string)$config['console_endpoint_path'], '/inventory/devices/{agentId}', $canUpdate, true, __('Abre o endpoint direto na console. Vazio = sem link.', 'sentinelone'));
       echo "</div>";
@@ -451,6 +484,39 @@ class Config extends \CommonGLPI
       echo "<textarea class='form-control' name='" . self::h($name) . "' rows='4' placeholder='" . self::h($placeholder) . "'" . self::disabled(!$enabled) . ">" . self::h($value) . "</textarea>";
       self::renderHelp($help);
       echo "</label>";
+   }
+
+   private static function renderTokenExpiry(array $config): void
+   {
+      $expiresAt = trim((string)($config['token_expires_at'] ?? ''));
+      $days = self::getTokenExpiryDays($config);
+
+      echo "<div class='sentinelone-field sentinelone-field--wide' id='s1-token-expiry-row'>";
+      echo "<span>" . __('Validade do token', 'sentinelone') . "</span>";
+      echo "<div class='sentinelone-field__control'>";
+
+      if ($days === null) {
+         echo "<span class='s1-token-expiry s1-token-expiry--unknown'>"
+            . "<span class='ti ti-calendar-question'></span> "
+            . __('Nao disponivel — teste a conexao para buscar automaticamente.', 'sentinelone')
+            . "</span>";
+      } elseif ($days < 0) {
+         echo "<span class='s1-token-expiry s1-token-expiry--expired'>"
+            . "<span class='ti ti-calendar-x'></span> "
+            . __('TOKEN EXPIRADO', 'sentinelone') . " (" . self::h($expiresAt) . ")"
+            . "</span>";
+      } else {
+         $cssClass = $days <= 7 ? 'critical' : ($days <= 30 ? 'warn' : 'ok');
+         $icon = $days <= 7 ? 'ti-calendar-exclamation' : ($days <= 30 ? 'ti-calendar-stats' : 'ti-calendar-check');
+         echo "<span class='s1-token-expiry s1-token-expiry--{$cssClass}'>"
+            . "<span class='ti {$icon}'></span> "
+            . sprintf(__('%d dias restantes (vence em %s)', 'sentinelone'), $days, $expiresAt)
+            . "</span>";
+      }
+
+      echo "</div>";
+      echo "<small>" . __('Buscado automaticamente ao testar a conexao. Atualize o token antes de vencer.', 'sentinelone') . "</small>";
+      echo "</div>";
    }
 
    private static function renderText(string $name, string $label, string $value, string $placeholder = '', bool $enabled = true, bool $wide = false, ?string $help = null): void

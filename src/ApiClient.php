@@ -63,6 +63,40 @@ class ApiClient
       return $this->request('GET', '/agents', ['limit' => 1]);
    }
 
+   /**
+    * Tenta buscar a data de expiracao do token na API SentinelOne.
+    * Retorna string ISO-8601 (ex: "2026-08-15T00:00:00Z") ou null se
+    * o endpoint nao existir ou nao retornar a informacao.
+    */
+   public function getTokenExpiry(): ?string
+   {
+      $paths = ['/users/api-token-details', '/system/status'];
+
+      foreach ($paths as $path) {
+         try {
+            $response = $this->request('GET', $path);
+            $data = $response['data'] ?? [];
+
+            $expiry = null;
+            if (is_array($data)) {
+               $expiry = $data['expiresAt']
+                  ?? $data['expiredAt']
+                  ?? $data['tokenExpiresAt']
+                  ?? $data['token_expires_at']
+                  ?? null;
+            }
+
+            if (is_string($expiry) && $expiry !== '') {
+               return $expiry;
+            }
+         } catch (\Throwable $ignored) {
+            // tenta o proximo endpoint
+         }
+      }
+
+      return null;
+   }
+
    public function getAgents(array $params = [], int $maxPages = 10): array
    {
       return $this->collectPaginated('/agents', $params, $maxPages);

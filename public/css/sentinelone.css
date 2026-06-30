@@ -1656,3 +1656,19 @@ a.sentinelone-diagnostic__stat:hover .s1-stat-go {
 .s1-cve-table .sentinelone-identifiers { gap: .15rem; }
 .s1-cve-table .sentinelone-identifiers code { font-size: 11px; }
 .s1-cve-table .sentinelone-check strong { font-weight: 600; }
+
+/* ── Token expiry badge ───────────────────────────────────────────── */
+.s1-token-expiry {
+   display: inline-flex;
+   align-items: center;
+   gap: .35rem;
+   font-size: .875rem;
+   font-weight: 600;
+   padding: .3rem .7rem;
+   border-radius: 6px;
+}
+.s1-token-expiry--ok       { background: #d4edda; color: #155724; }
+.s1-token-expiry--warn     { background: #fff3cd; color: #856404; }
+.s1-token-expiry--critical { background: #f8d7da; color: #721c24; }
+.s1-token-expiry--expired  { background: #f8d7da; color: #721c24; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.s1-token-expiry--unknown  { background: #e2e3e5; color: #383d41; font-weight: 400; }
