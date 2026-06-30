@@ -359,6 +359,7 @@ class ApiClient
          CURLOPT_TIMEOUT        => $this->timeout,
          CURLOPT_SSL_VERIFYPEER => true,
          CURLOPT_SSL_VERIFYHOST => 2,
+         CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_2TLS,
       ]);
 
       if ($body !== null) {

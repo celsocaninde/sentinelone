@@ -187,7 +187,11 @@ class Config extends \CommonGLPI
       $values = \Config::getConfigurationValues(self::CONTEXT, array_keys($defaults));
 
       $config = array_merge($defaults, $values ?: []);
-      $config['api_token'] = self::unprotectSecret((string)$config['api_token']);
+      $stored = (string)$config['api_token'];
+      $decrypted = self::unprotectSecret($stored);
+      $config['api_token'] = $decrypted;
+      // Sinaliza quando o token estava armazenado mas nao pode ser descriptografado.
+      $config['_token_decrypt_failed'] = str_starts_with($stored, self::SECRET_PREFIX) && $decrypted === '';
 
       return $config;
    }
@@ -280,7 +284,9 @@ class Config extends \CommonGLPI
    {
       $config = self::getConfig();
       $formUrl = self::getPluginFormUrl();
-      $tokenStatus = trim((string)$config['api_token']) !== '' ? __('Token cadastrado', 'sentinelone') : __('Token nao cadastrado', 'sentinelone');
+      $tokenStatus = !empty($config['_token_decrypt_failed'])
+         ? __('Token ilegivel — recadastre', 'sentinelone')
+         : (trim((string)$config['api_token']) !== '' ? __('Token cadastrado', 'sentinelone') : __('Token nao cadastrado', 'sentinelone'));
       $canUpdate = Profile::hasConfigUpdateRight();
       $configured = self::isConfigured($config);
       $flash = self::pullConnectionTestFlash();
@@ -301,6 +307,13 @@ class Config extends \CommonGLPI
       echo $configured ? __('Configurada', 'sentinelone') : __('Pendente', 'sentinelone');
       echo "</div>";
       echo "</div>";
+
+      if (!empty($config['_token_decrypt_failed'])) {
+         echo "<div class='sentinelone-test-result sentinelone-test-result--error'>";
+         echo "<strong>" . __('Token ilegivel — recadastre o token', 'sentinelone') . "</strong>";
+         echo "<span>" . __('O token da API estava gravado mas nao pode ser descriptografado (a chave de criptografia do GLPI pode ter mudado apos uma reinicializacao do container ou migracao). Digite o token novamente no campo abaixo e salve.', 'sentinelone') . "</span>";
+         echo "</div>";
+      }
 
       if ($flash !== null) {
          self::renderConnectionTestFlash($flash);
@@ -1062,12 +1075,13 @@ HTML;
          }
       }
 
-      // Nao armazenar em texto puro se a criptografia falhar.
+      // Fallback: armazena em texto puro quando a criptografia nao esta disponivel.
+      // Preferivel a perder o token silenciosamente (o que causaria erro 401 no sync).
       trigger_error(
-         'SentinelOne: GLPIKey indisponivel ou falhou — token da API nao foi salvo. Verifique a configuracao de chave do GLPI.',
+         'SentinelOne: GLPIKey indisponivel ou falhou — token salvo em texto puro. Configure a chave do GLPI para habilitar criptografia.',
          E_USER_WARNING
       );
-      return '';
+      return $secret;
    }
 
    private static function unprotectSecret(string $secret): string
@@ -1077,17 +1091,24 @@ HTML;
       }
 
       if (!class_exists(\GLPIKey::class)) {
+         trigger_error('SentinelOne: GLPIKey indisponivel — token nao pode ser descriptografado. Recadastre o token na configuracao do plugin.', E_USER_WARNING);
          return '';
       }
 
       $key = new \GLPIKey();
       if (!method_exists($key, 'decrypt')) {
+         trigger_error('SentinelOne: GLPIKey sem metodo decrypt — token nao pode ser descriptografado. Recadastre o token na configuracao do plugin.', E_USER_WARNING);
          return '';
       }
 
       try {
-         return (string)$key->decrypt(substr($secret, strlen(self::SECRET_PREFIX)));
+         $decrypted = (string)$key->decrypt(substr($secret, strlen(self::SECRET_PREFIX)));
+         if ($decrypted === '') {
+            trigger_error('SentinelOne: Descriptografia do token retornou vazio (a chave GLPI pode ter mudado apos reinicializacao do container). Recadastre o token na configuracao do plugin.', E_USER_WARNING);
+         }
+         return $decrypted;
       } catch (\Throwable $error) {
+         trigger_error('SentinelOne: Falha ao descriptografar token (' . $error->getMessage() . '). Recadastre o token na configuracao do plugin.', E_USER_WARNING);
          return '';
       }
    }

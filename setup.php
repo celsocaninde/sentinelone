@@ -20,6 +20,11 @@ function plugin_init_sentinelone(): void
 
    Plugin::loadLang('sentinelone');
 
+   // Garante que os direitos existem no banco (uma vez por sessao, sem travar a UI).
+   if (empty($_SESSION['_s1_rights_ensured'])) {
+      SentineloneProfile::ensureProfileRights();
+      $_SESSION['_s1_rights_ensured'] = true;
+   }
    SentineloneProfile::syncCurrentProfileRights();
 
    $PLUGIN_HOOKS['csrf_compliant']['sentinelone'] = true;
