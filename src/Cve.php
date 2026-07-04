@@ -99,23 +99,30 @@ class Cve extends \CommonDBTM
          return;
       }
 
+      $rows = [];
+      foreach ($DB->request([
+         'FROM'  => self::getTable(),
+         'WHERE' => ['plugin_sentinelone_agents_id' => $agentId],
+         'ORDER' => ['severity_rank ASC', 'cvss_score DESC', 'cve_id ASC'],
+      ]) as $row) {
+         $rows[] = $row;
+      }
+      $enrich = Enrichment::forCves(array_column($rows, 'cve_id'));
+
       echo "<div class='sentinelone-panel__body' style='padding:0'>";
       echo "<table class='s1-cve-table'>";
       echo "<thead><tr>";
       echo "<th>" . __('CVE', 'sentinelone') . "</th>";
       echo "<th>" . __('Severidade', 'sentinelone') . "</th>";
       echo "<th>" . __('CVSS', 'sentinelone') . "</th>";
+      echo "<th title='" . __('Probabilidade de exploracao em 30 dias (FIRST.org)', 'sentinelone') . "'>EPSS</th>";
       echo "<th>" . __('Aplicacao', 'sentinelone') . "</th>";
       echo "<th>" . __('Versao', 'sentinelone') . "</th>";
       echo "<th>" . __('Publicado', 'sentinelone') . "</th>";
       echo "</tr></thead>";
       echo "<tbody>";
 
-      foreach ($DB->request([
-         'FROM'  => self::getTable(),
-         'WHERE' => ['plugin_sentinelone_agents_id' => $agentId],
-         'ORDER' => ['severity_rank ASC', 'cvss_score DESC', 'cve_id ASC'],
-      ]) as $row) {
+      foreach ($rows as $row) {
          $cveId = \Html::cleanInputText((string)$row['cve_id']);
          $severity = (string)($row['severity'] ?? '');
          $cvss = $row['cvss_score'] !== null ? number_format((float)$row['cvss_score'], 1) : '—';
@@ -126,16 +133,33 @@ class Cve extends \CommonDBTM
 
          $sevClass = self::severityClass($severity);
 
+         $e = $enrich[strtoupper((string)$row['cve_id'])] ?? null;
+         $kevBadge = '';
+         if ($e !== null && !empty($e['is_kev'])) {
+            $kevTitle = !empty($e['kev_ransomware'])
+               ? __('CISA KEV — exploracao ativa E uso em ransomware', 'sentinelone')
+               : __('CISA KEV — exploracao ativa confirmada', 'sentinelone');
+            $kevBadge = " <span class='s1-badge s1-badge--critical' style='font-size:.62rem' title='" . \Html::cleanInputText($kevTitle) . "'>&#128293; KEV" . (!empty($e['kev_ransomware']) ? ' &#9760;' : '') . "</span>";
+         }
+         if ($e !== null && $e['epss_score'] !== null) {
+            $epssPct = (float)$e['epss_score'] * 100;
+            $epssStyle = $epssPct >= 50 ? 'color:#b5179e;font-weight:700' : ($epssPct >= 10 ? 'font-weight:600' : '');
+            $epss = "<span style='{$epssStyle}'>" . number_format($epssPct, $epssPct >= 10 ? 0 : 1) . "%</span>";
+         } else {
+            $epss = "<span class='s1-muted'>—</span>";
+         }
+
          echo "<tr>";
 
          if ($link !== '') {
-            echo "<td><a href='" . \Html::cleanInputText($link) . "' target='_blank' rel='noopener' class='s1-cve-link'>" . $cveId . " <span class='ti ti-external-link' style='font-size:10px'></span></a></td>";
+            echo "<td><a href='" . \Html::cleanInputText($link) . "' target='_blank' rel='noopener' class='s1-cve-link'>" . $cveId . " <span class='ti ti-external-link' style='font-size:10px'></span></a>{$kevBadge}</td>";
          } else {
-            echo "<td><span class='s1-cve-id'>{$cveId}</span></td>";
+            echo "<td><span class='s1-cve-id'>{$cveId}</span>{$kevBadge}</td>";
          }
 
          echo "<td><span class='s1-badge {$sevClass}'>" . htmlspecialchars($severity) . "</span></td>";
          echo "<td>{$cvss}</td>";
+         echo "<td>{$epss}</td>";
          echo "<td>" . htmlspecialchars($appName) . "</td>";
          echo "<td>" . htmlspecialchars($appVer) . "</td>";
          echo "<td>{$published}</td>";
@@ -236,13 +260,19 @@ class Cve extends \CommonDBTM
          return [];
       }
 
+      // KEV (exploracao ativa confirmada) sempre no topo; empates resolvidos
+      // por severidade, probabilidade de exploracao (EPSS) e alcance na frota.
+      Enrichment::ensureTable();
+
       $rows = [];
       $result = $DB->doQuery(
-         "SELECT cve_id, MIN(severity_rank) AS top_rank, MAX(severity) AS severity,"
-         . " MAX(cvss_score) AS cvss_score, COUNT(DISTINCT plugin_sentinelone_agents_id) AS agents_count"
-         . " FROM `" . self::getTable() . "`"
-         . " GROUP BY cve_id"
-         . " ORDER BY top_rank ASC, agents_count DESC, cvss_score DESC"
+         "SELECT c.cve_id, MIN(c.severity_rank) AS top_rank, MAX(c.severity) AS severity,"
+         . " MAX(c.cvss_score) AS cvss_score, COUNT(DISTINCT c.plugin_sentinelone_agents_id) AS agents_count,"
+         . " MAX(e.is_kev) AS is_kev, MAX(e.epss_score) AS epss_score"
+         . " FROM `" . self::getTable() . "` c"
+         . " LEFT JOIN `" . Enrichment::$table . "` e ON e.cve_id = c.cve_id"
+         . " GROUP BY c.cve_id"
+         . " ORDER BY is_kev DESC, top_rank ASC, epss_score DESC, agents_count DESC, cvss_score DESC"
          . " LIMIT " . (int)$limit
       );
       if ($result) {

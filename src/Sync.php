@@ -45,6 +45,9 @@ class Sync
          'retryfailedtickets' => [
             'description' => 'Reprocessa tickets de ameaca que falharam ao serem criados (fila de retry)',
          ],
+         'enrichcves' => [
+            'description' => 'Enriquece CVEs da frota com EPSS (FIRST.org) e catalogo CISA KEV de exploracao ativa',
+         ],
       ];
 
       return $info[strtolower($name)] ?? [];
@@ -94,6 +97,28 @@ class Sync
          return 1;
       } catch (\Throwable $error) {
          Log::record('synccves', 'error', $error->getMessage());
+         return 0;
+      }
+   }
+
+   public static function cronEnrichcves(?\CronTask $task = null): int
+   {
+      try {
+         $result = Enrichment::refresh();
+
+         Log::record('enrichcves', 'success', sprintf(
+            'Threat intel atualizada: %d CVEs com EPSS, %d no catalogo KEV.',
+            $result['epss'],
+            $result['kev']
+         ));
+
+         if ($task !== null) {
+            $task->addVolume($result['epss'] + $result['kev']);
+         }
+
+         return 1;
+      } catch (\Throwable $error) {
+         Log::record('enrichcves', 'error', $error->getMessage());
          return 0;
       }
    }

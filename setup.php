@@ -10,7 +10,7 @@ use GlpiPlugin\Sentinelone\RogueDevice;
 use GlpiPlugin\Sentinelone\Profile as SentineloneProfile;
 use GlpiPlugin\Sentinelone\Threat;
 
-define('PLUGIN_SENTINELONE_VERSION', '1.5.0');
+define('PLUGIN_SENTINELONE_VERSION', '1.6.0');
 define('PLUGIN_SENTINELONE_MIN_GLPI_VERSION', '11.0.0');
 define('PLUGIN_SENTINELONE_MAX_GLPI_VERSION', '11.0.99');
 

@@ -1,6 +1,7 @@
 <?php
 
 use GlpiPlugin\Sentinelone\Cve;
+use GlpiPlugin\Sentinelone\Enrichment;
 use GlpiPlugin\Sentinelone\Profile;
 use GlpiPlugin\Sentinelone\Sync;
 
@@ -21,6 +22,35 @@ $summary = Cve::getSummary();
 $topCves = Cve::getTopCves(15);
 $topApps = Cve::getTopApplications(10);
 $agents  = Cve::getAgentsWithMostCves(20);
+
+// Threat intel EPSS / CISA KEV (cron enrichcves)
+$kevSummary = Enrichment::getKevSummary();
+$intelDate  = Enrichment::lastRefresh();
+$enrichMap  = Enrichment::forCves(array_column($topCves, 'cve_id'));
+
+// Badge KEV ao lado do CVE id (☠ quando usado em campanhas de ransomware).
+$kevBadge = static function (string $cveId) use ($enrichMap, $h): string {
+   $e = $enrichMap[strtoupper($cveId)] ?? null;
+   if ($e === null || empty($e['is_kev'])) {
+      return '';
+   }
+   $title = !empty($e['kev_ransomware'])
+      ? __('CISA KEV — exploração ativa E uso em campanhas de ransomware', 'sentinelone')
+      : __('CISA KEV — exploração ativa confirmada', 'sentinelone');
+   return " <span class='s1-badge s1-badge--critical' style='font-size:.62rem' title='" . $h($title) . "'>&#128293; KEV"
+      . (!empty($e['kev_ransomware']) ? ' &#9760;' : '') . "</span>";
+};
+
+// Chip de EPSS (probabilidade de exploração em 30 dias).
+$epssChip = static function (string $cveId) use ($enrichMap, $h): string {
+   $e = $enrichMap[strtoupper($cveId)] ?? null;
+   if ($e === null || $e['epss_score'] === null) {
+      return '<span class="s1-muted">—</span>';
+   }
+   $pct   = (float)$e['epss_score'] * 100;
+   $style = $pct >= 50 ? 'color:#b5179e;font-weight:700' : ($pct >= 10 ? 'font-weight:600' : '');
+   return '<span style="' . $style . '">' . $h(number_format($pct, $pct >= 10 ? 0 : 1)) . '%</span>';
+};
 
 $total = (int)($summary['records'] ?? 0);
 
@@ -121,6 +151,21 @@ $cvssChip = static function ($score, string $severity) use ($h): string {
          <strong><?= $h($summary['apps']) ?></strong>
          <small><?= __('produtos distintos', 'sentinelone') ?></small>
       </a>
+      <a class="sentinelone-stat<?= $kevSummary['cves'] > 0 ? ' sentinelone-stat--danger' : '' ?>" href="#s1-anchor-topcves"
+         title="<?= $h(__('CVEs presentes no catálogo CISA KEV: exploração ativa confirmada no mundo real', 'sentinelone')) ?>">
+         <span class="s1-stat-go"><span class="ti ti-arrow-down"></span></span>
+         <span>&#128293; <?= __('Exposição KEV', 'sentinelone') ?></span>
+         <strong><?= $h($kevSummary['cves']) ?></strong>
+         <small><?php
+            if ($kevSummary['cves'] > 0) {
+               echo $h(sprintf(__('%1$s endpoints · %2$s c/ ransomware', 'sentinelone'), $kevSummary['endpoints'], $kevSummary['ransomware']));
+            } elseif ($intelDate === null) {
+               echo $h(__('ative a cron enrichcves', 'sentinelone'));
+            } else {
+               echo $h(__('nenhum CVE em exploração ativa', 'sentinelone'));
+            }
+         ?></small>
+      </a>
    </div>
 
    <!-- ░░ DISTRIBUIÇÃO DE SEVERIDADE ░░ -->
@@ -174,7 +219,7 @@ $cvssChip = static function ($score, string $severity) use ($h): string {
                <span class="sentinelone-panel__icon"><span class="ti ti-shield-exclamation"></span></span>
                <div>
                   <h3><?= __('Top CVEs', 'sentinelone') ?></h3>
-                  <p><?= __('Maior severidade e alcance na frota', 'sentinelone') ?></p>
+                  <p><?= __('Maior severidade e alcance na frota', 'sentinelone') ?><?php if ($intelDate !== null): ?> · <?= $h(sprintf(__('intel EPSS/KEV de %s', 'sentinelone'), date('d/m/Y H:i', strtotime($intelDate)))) ?><?php endif; ?></p>
                </div>
             </div>
             <span class="s1-badge s1-badge--muted"><?= count($topCves) ?></span>
@@ -186,6 +231,7 @@ $cvssChip = static function ($score, string $severity) use ($h): string {
                      <th><?= __('CVE', 'sentinelone') ?></th>
                      <th><?= __('Severidade', 'sentinelone') ?></th>
                      <th>CVSS</th>
+                     <th title="<?= $h(__('Exploit Prediction Scoring System — probabilidade de exploração em 30 dias (FIRST.org)', 'sentinelone')) ?>">EPSS</th>
                      <th class="text-end"><?= __('Endpoints', 'sentinelone') ?></th>
                   </tr>
                </thead>
@@ -198,15 +244,16 @@ $cvssChip = static function ($score, string $severity) use ($h): string {
                      <td>
                         <a class="s1-cve-link" href="<?= $h($cveLink) ?>" target="_blank" rel="noopener">
                            <?= $h($row['cve_id']) ?> <span class="ti ti-external-link" style="font-size:10px"></span>
-                        </a>
+                        </a><?= $kevBadge((string)$row['cve_id']) ?>
                      </td>
                      <td><span class="s1-badge <?= $severityClass($sev) ?>"><?= $h($sev) ?></span></td>
                      <td><?= $cvssChip($row['cvss_score'] ?? null, $sev) ?></td>
+                     <td><?= $epssChip((string)$row['cve_id']) ?></td>
                      <td class="text-end"><strong><?= $h($row['agents_count']) ?></strong></td>
                   </tr>
                   <?php endforeach; ?>
                   <?php if ($topCves === []): ?>
-                  <tr><td colspan="4" class="text-center s1-muted"><?= __('Sem dados.', 'sentinelone') ?></td></tr>
+                  <tr><td colspan="5" class="text-center s1-muted"><?= __('Sem dados.', 'sentinelone') ?></td></tr>
                   <?php endif; ?>
                </tbody>
             </table>

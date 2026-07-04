@@ -2,6 +2,7 @@
 
 use GlpiPlugin\Sentinelone\Agent;
 use GlpiPlugin\Sentinelone\Config as S1Config;
+use GlpiPlugin\Sentinelone\Cve;
 use GlpiPlugin\Sentinelone\Profile;
 use GlpiPlugin\Sentinelone\Sync;
 use GlpiPlugin\Sentinelone\Threat;
@@ -312,6 +313,9 @@ echo "<style>.container-xl,.container-lg{max-width:100%!important}</style>";
 <?php endif; ?>
 
 </div><!-- .row -->
+
+<?php Cve::showForAgent($id); ?>
+
 </div><!-- .container-fluid -->
 </div><!-- .page-body -->
 <?php

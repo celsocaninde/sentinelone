@@ -42,6 +42,7 @@ class Dashboard
          'plugin_sentinelone_groups_risky'          => 'cardGroupsRisky',
          'plugin_sentinelone_rogue_devices'         => 'cardRogueDevices',
          'plugin_sentinelone_token_expiry'          => 'cardTokenExpiry',
+         'plugin_sentinelone_kev_cves'              => 'cardKevCves',
       ];
 
       $labels = [
@@ -56,6 +57,7 @@ class Dashboard
          'plugin_sentinelone_groups_risky'          => 'SentinelOne - Grupos sem protecao plena',
          'plugin_sentinelone_rogue_devices'         => 'SentinelOne - Dispositivos rogues',
          'plugin_sentinelone_token_expiry'          => 'SentinelOne - Dias restantes do token',
+         'plugin_sentinelone_kev_cves'              => 'SentinelOne - CVEs em exploracao ativa (KEV)',
       ];
 
       foreach ($defs as $key => $method) {
@@ -196,6 +198,18 @@ class Dashboard
          $label,
          'ti ti-key',
          self::frontUrl('config.form.php')
+      );
+   }
+
+   public static function cardKevCves(array $params = []): array
+   {
+      $value = Profile::hasReadRight() ? Enrichment::getKevSummary()['cves'] : 0;
+
+      return self::bigNumber(
+         $value,
+         'CVEs em exploracao ativa (KEV)',
+         'ti ti-flame',
+         self::frontUrl('cves.php')
       );
    }
 

@@ -1009,3 +1009,48 @@ msgstr "Sync rogue devices (Ranger)"
 
 msgid "Busca endpoints detectados na rede pelo Ranger SentinelOne que nao possuem agente instalado. Opt-in: requer licenca Ranger."
 msgstr "Fetches endpoints detected on the network by SentinelOne Ranger that have no agent installed. Opt-in: requires Ranger license."
+
+msgid "Exposicao KEV"
+msgstr "KEV exposure"
+
+#, php-format
+msgid "%d CVEs em exploracao ativa"
+msgstr "%d CVEs under active exploitation"
+
+msgid "Probabilidade de exploracao em 30 dias (FIRST.org)"
+msgstr "Probability of exploitation within 30 days (FIRST.org)"
+
+msgid "CISA KEV — exploracao ativa E uso em ransomware"
+msgstr "CISA KEV — active exploitation AND ransomware use"
+
+msgid "CISA KEV — exploracao ativa confirmada"
+msgstr "CISA KEV — confirmed active exploitation"
+
+msgid "Exposição KEV"
+msgstr "KEV exposure"
+
+msgid "CISA KEV — exploração ativa E uso em campanhas de ransomware"
+msgstr "CISA KEV — active exploitation AND use in ransomware campaigns"
+
+msgid "CISA KEV — exploração ativa confirmada"
+msgstr "CISA KEV — confirmed active exploitation"
+
+msgid "CVEs presentes no catálogo CISA KEV: exploração ativa confirmada no mundo real"
+msgstr "CVEs in the CISA KEV catalog: confirmed active exploitation in the wild"
+
+#, php-format
+msgid "%1$s endpoints · %2$s c/ ransomware"
+msgstr "%1$s endpoints · %2$s w/ ransomware"
+
+msgid "ative a cron enrichcves"
+msgstr "enable the enrichcves cron"
+
+msgid "nenhum CVE em exploração ativa"
+msgstr "no CVEs under active exploitation"
+
+msgid "Exploit Prediction Scoring System — probabilidade de exploração em 30 dias (FIRST.org)"
+msgstr "Exploit Prediction Scoring System — probability of exploitation within 30 days (FIRST.org)"
+
+#, php-format
+msgid "intel EPSS/KEV de %s"
+msgstr "EPSS/KEV intel from %s"

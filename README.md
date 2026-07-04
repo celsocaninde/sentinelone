@@ -2,7 +2,7 @@
 
 > Plugin para GLPI 11 que integra o SentinelOne ao inventário e ao service desk: dashboard operacional, sincronização de agentes, ameaças, CVEs e dispositivos rogues, tickets automáticos, alertas por e-mail e **relatório executivo premium** — na tela e no e-mail.
 
-🏷️ Versão: `1.4.0` · Autoria: Celso / Claude · Licença: GPLv3+
+🏷️ Versão: `1.6.0` · Autoria: Celso / Claude · Licença: GPLv3+
 
 ---
 
@@ -37,6 +37,7 @@
 - 🔬 Dashboard global de CVEs: totais por severidade, top CVEs, aplicações mais vulneráveis, endpoints mais expostos
 - 🔄 Sincronização de CVEs por agente via `/threats/cve` (requer plano Vulnerability Management)
 - 🛑 Detecção automática quando o endpoint CVE não está disponível no plano
+- 🔥 **EPSS + CISA KEV** (novo em v1.6.0): enriquecimento diário com probabilidade de exploração (FIRST.org) e catálogo de exploração ativa da CISA — badges 🔥 KEV (☠ ransomware), coluna EPSS, Top CVEs priorizado por exploração real e KPI "Exposição KEV" no dashboard
 
 ### 🤖 Automação avançada
 
@@ -52,6 +53,7 @@
 - 🖼️ Logo próprio na tela de plugins do GLPI
 - 🔗 Deep links opcionais para a console SentinelOne (endpoint e ameaça)
 - 🧭 Onboarding guiado quando a integração ainda não está configurada
+- 🌐 i18n completa: pt_BR com acentuação correta (340 strings) e en_US (349 strings), `.mo` compilados
 
 ---
 
@@ -174,10 +176,14 @@ Criadas desabilitadas na instalação. Ative em **Configurar > Ações automáti
 | `syncthreats` | Configurável |
 | `syncactivities` | Configurável |
 | `syncgroups` | Configurável |
+| `syncsoftware` | 24 h |
 | `syncrogues` | Configurável |
 | `synccves` | Configurável |
+| `enrichcves` | 24 h |
+| `alertoffline` | 4 h |
 | `reportweekly` | 7 dias |
 | `purgelogs` | 24 h |
+| `retryfailedtickets` | 1 h |
 
 ---
 
@@ -208,9 +214,19 @@ Configure em **Saúde de agentes e alertas**:
 A aba **CVEs globais** exibe:
 
 - Totais por severidade (CRITICAL / HIGH / MEDIUM / LOW)
-- Top CVEs por número de endpoints afetados
+- Top CVEs priorizado por exploração real: KEV primeiro, depois severidade e EPSS
 - Aplicações mais vulneráveis
 - Endpoints com mais CVEs críticos
+- KPI **Exposição KEV**: CVEs da frota presentes no catálogo CISA de exploração ativa
+
+### 🔥 Threat intel EPSS / CISA KEV (v1.6.0)
+
+A cron `enrichcves` (diária) baixa dois feeds públicos e cruza com os CVEs da frota:
+
+- **EPSS** (FIRST.org): probabilidade de exploração nos próximos 30 dias — vira coluna nas tabelas de CVE
+- **CISA KEV**: catálogo de vulnerabilidades com exploração ativa confirmada — vira badge 🔥 KEV (com ☠ quando há uso em campanhas de ransomware)
+
+Isso muda a priorização de "CVSS alto" para "CVSS alto **e sendo explorado agora**". Sem configuração: basta ativar a cron (requer saída HTTPS para `epss.cyentia.com` e `cisa.gov`).
 
 > Requer plano SentinelOne com Vulnerability Management add-on. Se o endpoint `/threats/cve` não estiver disponível, o plugin detecta automaticamente e registra um único aviso nos logs.
 

@@ -5,6 +5,7 @@ use GlpiPlugin\Sentinelone\Config;
 use GlpiPlugin\Sentinelone\Group;
 use GlpiPlugin\Sentinelone\Profile;
 use GlpiPlugin\Sentinelone\Cve;
+use GlpiPlugin\Sentinelone\Enrichment;
 use GlpiPlugin\Sentinelone\RogueDevice;
 use GlpiPlugin\Sentinelone\Sync;
 use GlpiPlugin\Sentinelone\Threat;
@@ -244,6 +245,11 @@ $cvesCritical  = (int)($cvesBySev['CRITICAL'] ?? 0);
 $cvesTotal     = (int)($cveStats['total'] ?? 0);
 if ($cvesTotal > 0) {
    $cards[] = ['label' => __('CVEs criticos', 'sentinelone'), 'value' => $cvesCritical, 'hint' => sprintf(__('%d CVEs total', 'sentinelone'), $cvesTotal), 'mod' => $cvesCritical > 0 ? 'danger' : 'ok', 'url' => $cvesUrl];
+
+   $kevSummary = Enrichment::getKevSummary();
+   if ($kevSummary['cves'] > 0) {
+      $cards[] = ['label' => __('Exposicao KEV', 'sentinelone'), 'value' => $kevSummary['occurrences'], 'hint' => sprintf(__('%d CVEs em exploracao ativa', 'sentinelone'), $kevSummary['cves']), 'mod' => 'danger', 'url' => $cvesUrl . '#s1-anchor-topcves'];
+   }
 }
 
 echo "<div class='sentinelone-stats'>";
