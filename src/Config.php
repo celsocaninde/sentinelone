@@ -74,6 +74,7 @@ class Config extends \CommonGLPI
          'sync_cves'            => '0',
          'sync_cves_limit'      => '30',
          'sync_rogues'          => '0',
+         'sync_exclusions'      => '0',
          'sync_incremental'     => '0',
          'report_recipients'    => '',
          'sync_date_from'       => '',
@@ -242,6 +243,7 @@ class Config extends \CommonGLPI
       $config['sync_cves'] = self::boolInput($input, 'sync_cves');
       $config['sync_cves_limit'] = (string)max(1, min(200, (int)($input['sync_cves_limit'] ?? 30)));
       $config['sync_rogues'] = self::boolInput($input, 'sync_rogues');
+      $config['sync_exclusions'] = self::boolInput($input, 'sync_exclusions');
       $config['sync_incremental'] = self::boolInput($input, 'sync_incremental');
       $config['report_recipients'] = self::cleanEmailList($input['report_recipients'] ?? '');
       $config['sync_date_from'] = self::cleanDate($input['sync_date_from'] ?? '');
@@ -400,6 +402,7 @@ class Config extends \CommonGLPI
       self::renderYesNo('sync_cves', __('Sincronizar CVEs dos endpoints', 'sentinelone'), (string)($config['sync_cves'] ?? '0') === '1', $canUpdate, __('Busca CVEs detectados em cada endpoint via API SentinelOne e exibe na aba do computador no GLPI. Opt-in: aumenta chamadas a API. Requer plano com Vulnerability Management habilitado.', 'sentinelone'));
       self::renderNumber('sync_cves_limit', __('Agentes por execucao de CVE sync', 'sentinelone'), (int)($config['sync_cves_limit'] ?? 30), 1, 200, $canUpdate, __('Quantos agentes sao processados por execucao da cron de CVEs.', 'sentinelone'));
       self::renderYesNo('sync_rogues', __('Sincronizar dispositivos rogues (Ranger)', 'sentinelone'), (string)($config['sync_rogues'] ?? '0') === '1', $canUpdate, __('Busca endpoints detectados na rede pelo Ranger SentinelOne que nao possuem agente instalado. Opt-in: requer licenca Ranger.', 'sentinelone'));
+      self::renderYesNo('sync_exclusions', __('Sincronizar exclusoes da console (auditoria)', 'sentinelone'), (string)($config['sync_exclusions'] ?? '0') === '1', $canUpdate, __('Importa as exclusoes (allowlist de paths, hashes e certificados) configuradas na console para auditoria: quem criou, quando e com que escopo. Exclusao e onde ameacas se escondem do EDR.', 'sentinelone'));
       self::renderYesNo('sync_incremental', __('Sync incremental (somente atualizacoes)', 'sentinelone'), (string)($config['sync_incremental'] ?? '0') === '1', $canUpdate, __('Quando ativo, as syncs de agentes e ameacas passam updatedAt__gt para buscar apenas o que mudou desde a ultima execucao. Reduz drasticamente o tempo de cron e o volume de chamadas a API. A primeira sync apos ativar sera completa.', 'sentinelone'));
       self::renderDateInput('sync_date_from', __('Sincronizar a partir de (data de corte)', 'sentinelone'), (string)($config['sync_date_from'] ?? ''), $canUpdate, __('Opcional. Quando preenchido, a primeira sync (ou syncs sem cursor incremental) ignoram agentes e ameacas anteriores a essa data. Formato AAAA-MM-DD. Util para nao importar historico antigo na primeira execucao.', 'sentinelone'));
       self::renderNumber('agent_inactive_days', __('Ignorar agentes sem contato ha (dias)', 'sentinelone'), (int)($config['agent_inactive_days'] ?? 0), 0, 3650, $canUpdate, __('Quando maior que 0, agentes que nao comunicaram com a console SentinelOne nos ultimos N dias nao sao sincronizados. Use para excluir maquinas desativadas ou fora de operacao. 0 = desabilitado (sincroniza todos).', 'sentinelone'));

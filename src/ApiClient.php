@@ -207,6 +207,13 @@ class ApiClient
       return $this->collectPaginated('/rogues/table-view', array_merge(['limit' => 100], $params), $maxPages);
    }
 
+   public function getExclusions(array $params = [], int $maxPages = 10): array
+   {
+      // Exclusoes (allowlist) da console: paths, hashes, certificados etc.
+      // See swagger: GET /web/api/v2.1/exclusions
+      return $this->collectPaginated('/exclusions', array_merge(['limit' => 100], $params), $maxPages);
+   }
+
    // ---- Threat actions ----
 
    public function mitigateThreat(string $threatId, string $action = 'kill_and_quarantine'): array

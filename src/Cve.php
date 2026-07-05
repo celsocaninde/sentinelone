@@ -108,6 +108,7 @@ class Cve extends \CommonDBTM
          $rows[] = $row;
       }
       $enrich = Enrichment::forCves(array_column($rows, 'cve_id'));
+      $cross  = CrossPlugin::forCves(array_column($rows, 'cve_id'));
 
       echo "<div class='sentinelone-panel__body' style='padding:0'>";
       echo "<table class='s1-cve-table'>";
@@ -141,6 +142,7 @@ class Cve extends \CommonDBTM
                : __('CISA KEV — exploracao ativa confirmada', 'sentinelone');
             $kevBadge = " <span class='s1-badge s1-badge--critical' style='font-size:.62rem' title='" . \Html::cleanInputText($kevTitle) . "'>&#128293; KEV" . (!empty($e['kev_ransomware']) ? ' &#9760;' : '') . "</span>";
          }
+         $kevBadge .= CrossPlugin::badgesHtml($cross[strtoupper((string)$row['cve_id'])] ?? null);
          if ($e !== null && $e['epss_score'] !== null) {
             $epssPct = (float)$e['epss_score'] * 100;
             $epssStyle = $epssPct >= 50 ? 'color:#b5179e;font-weight:700' : ($epssPct >= 10 ? 'font-weight:600' : '');

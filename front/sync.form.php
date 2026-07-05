@@ -13,6 +13,7 @@ $rootDoc      = (string)($CFG_GLPI['root_doc'] ?? '');
 $dashboardUrl = $rootDoc . '/plugins/sentinelone/front/dashboard.php';
 $coverageUrl  = $rootDoc . '/plugins/sentinelone/front/coverage.php?tab=unlinked';
 $roguesUrl    = $rootDoc . '/plugins/sentinelone/front/rogues.php';
+$exclusionsUrl = $rootDoc . '/plugins/sentinelone/front/exclusions.php';
 $action       = (string)($_POST['action'] ?? '');
 
 try {
@@ -133,6 +134,22 @@ try {
          \Session::addMessageAfterRedirect('Dispositivos rogues sincronizados: ' . $result['total'] . '.');
       }
       \Html::redirect($roguesUrl);
+      exit;
+   } elseif ($action === 'syncexclusions') {
+      $result = Sync::syncExclusions();
+      $status = $result['status'] ?? 'ok';
+      if ($status === 'disabled') {
+         \Session::addMessageAfterRedirect('Sincronizacao de exclusoes esta desativada. Ative "Sincronizar exclusoes da console (auditoria)" na configuracao do plugin.', false, WARNING);
+      } elseif ($status === 'not_configured') {
+         \Session::addMessageAfterRedirect('Integracao SentinelOne nao configurada.', false, WARNING);
+      } elseif ($status === 'forbidden') {
+         \Session::addMessageAfterRedirect('Acesso negado pelo SentinelOne (403): o token nao tem permissao para consultar exclusoes.', false, ERROR);
+      } elseif ($status === 'error') {
+         \Session::addMessageAfterRedirect('Falha ao sincronizar exclusoes: ' . ($result['error'] ?? 'erro desconhecido'), false, ERROR);
+      } else {
+         \Session::addMessageAfterRedirect('Exclusoes sincronizadas: ' . $result['total'] . '.');
+      }
+      \Html::redirect($exclusionsUrl);
       exit;
    } elseif ($action === 'synccves') {
       $result = Sync::syncCves(true);

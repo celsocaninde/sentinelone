@@ -33,6 +33,9 @@ class Sync
          'syncrogues' => [
             'description' => 'Sincroniza dispositivos rogues detectados pelo Ranger SentinelOne',
          ],
+         'syncexclusions' => [
+            'description' => 'Auditoria: importa as exclusoes (allowlist) configuradas na console SentinelOne',
+         ],
          'alertoffline' => [
             'description' => 'Envia alertas por e-mail para agentes SentinelOne offline ha muito tempo',
          ],
@@ -140,6 +143,61 @@ class Sync
          Log::record('syncrogues', 'error', $error->getMessage());
          return 0;
       }
+   }
+
+   public static function cronSyncexclusions(?\CronTask $task = null): int
+   {
+      try {
+         $result = self::syncExclusions();
+
+         if ($task !== null) {
+            $task->addVolume($result['total']);
+         }
+
+         return 1;
+      } catch (\Throwable $error) {
+         Log::record('syncexclusions', 'error', $error->getMessage());
+         return 0;
+      }
+   }
+
+   public static function syncExclusions(): array
+   {
+      $config = Config::getConfig();
+
+      if (!Config::isConfigured($config)) {
+         Log::record('syncexclusions', 'skipped', 'Integracao SentinelOne nao configurada.');
+         return ['total' => 0, 'status' => 'not_configured'];
+      }
+
+      if ((string)($config['sync_exclusions'] ?? '0') !== '1') {
+         Log::record('syncexclusions', 'skipped', 'Sincronizacao de exclusoes desativada nas configuracoes (opt-in).');
+         return ['total' => 0, 'status' => 'disabled'];
+      }
+
+      try {
+         $client = ApiClient::fromConfig($config);
+         $items  = $client->getExclusions();
+      } catch (\Throwable $e) {
+         $msg = $e->getMessage();
+         Log::record('syncexclusions', 'error', $msg);
+         $forbidden = str_contains($msg, '403') || stripos($msg, 'permission') !== false;
+         return [
+            'total'  => 0,
+            'status' => $forbidden ? 'forbidden' : 'error',
+            'error'  => $msg,
+         ];
+      }
+
+      $result = Exclusion::upsertFromApi($items);
+
+      Log::record('syncexclusions', 'ok', sprintf(
+         'Auditoria de exclusoes concluida: %d importadas, %d removidas (nao existem mais na console).',
+         $result['imported'],
+         $result['removed']
+      ), $result['imported']);
+
+      return ['total' => $result['imported'], 'status' => 'ok'];
    }
 
    public static function cronSyncactivities(?\CronTask $task = null): int

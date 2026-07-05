@@ -354,7 +354,15 @@ function plugin_sentinelone_install(): bool
       'state'     => CronTask::STATE_DISABLE,
    ]);
 
+   CronTask::register(Sync::class, 'syncexclusions', HOUR_TIMESTAMP * 24, [
+      'mode'      => CronTask::MODE_EXTERNAL,
+      'allowmode' => CronTask::MODE_INTERNAL | CronTask::MODE_EXTERNAL,
+      'state'     => CronTask::STATE_DISABLE,
+   ]);
+
    \GlpiPlugin\Sentinelone\Enrichment::ensureTable();
+   \GlpiPlugin\Sentinelone\Exclusion::ensureTable();
+   \GlpiPlugin\Sentinelone\KevTicket::ensureTable();
 
    // CronTask::register() nao atualiza linhas ja existentes. Para instalacoes
    // anteriores (allowmode = EXTERNAL apenas, sem o botao "Executar"), corrige
@@ -364,7 +372,7 @@ function plugin_sentinelone_install(): bool
       ['allowmode' => CronTask::MODE_INTERNAL | CronTask::MODE_EXTERNAL],
       [
          'itemtype' => Sync::class,
-         'name'     => ['syncagents', 'syncthreats', 'syncactivities', 'syncsoftware', 'syncgroups', 'alertoffline', 'synccves', 'syncrogues', 'reportweekly', 'purgelogs', 'retryfailedtickets', 'enrichcves'],
+         'name'     => ['syncagents', 'syncthreats', 'syncactivities', 'syncsoftware', 'syncgroups', 'alertoffline', 'synccves', 'syncrogues', 'reportweekly', 'purgelogs', 'retryfailedtickets', 'enrichcves', 'syncexclusions'],
       ]
    );
 
@@ -384,6 +392,7 @@ function plugin_sentinelone_uninstall(): bool
       'glpi_plugin_sentinelone_cves',
       'glpi_plugin_sentinelone_cve_enrichment',
       'glpi_plugin_sentinelone_kev_tickets',
+      'glpi_plugin_sentinelone_exclusions',
       'glpi_plugin_sentinelone_rogue_devices',
       'glpi_plugin_sentinelone_failedtickets',
       'glpi_plugin_sentinelone_agents',

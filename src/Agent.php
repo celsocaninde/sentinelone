@@ -48,6 +48,7 @@ class Agent extends \CommonDBTM
          'links' => [
             'search' => $CFG_GLPI['root_doc'] . '/plugins/sentinelone/front/agent.php',
             __('Rogues', 'sentinelone') => $CFG_GLPI['root_doc'] . '/plugins/sentinelone/front/rogues.php',
+            __('Exclusoes', 'sentinelone') => $CFG_GLPI['root_doc'] . '/plugins/sentinelone/front/exclusions.php',
             __('Diagnostico', 'sentinelone') => $CFG_GLPI['root_doc'] . '/plugins/sentinelone/front/diagnostics.php',
             'config' => $CFG_GLPI['root_doc'] . '/plugins/sentinelone/front/config.form.php',
          ],

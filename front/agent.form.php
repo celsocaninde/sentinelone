@@ -30,7 +30,7 @@ foreach ($DB->request(['FROM' => Agent::getTable(), 'WHERE' => ['id' => $id], 'L
 }
 
 if ($agent === null) {
-   \Session::addMessageAfterRedirect('Agente nao encontrado.', false, ERROR);
+   \Session::addMessageAfterRedirect('Agente não encontrado.', false, ERROR);
    \Html::redirect($listUrl);
    exit;
 }
@@ -92,75 +92,91 @@ if ($computerId > 0 && $DB->tableExists('glpi_computers_softwareversions')) {
 
 $consoleUrl = S1Config::consoleEndpointUrl($config, $s1AgentId);
 
+$agentVersion    = trim((string)($agent['agent_version'] ?? ''));
+$minVersion      = trim((string)($config['min_agent_version'] ?? ''));
+$versionOutdated = $minVersion !== '' && $agentVersion !== '' && version_compare($agentVersion, $minVersion, '<');
+
+$subtitleParts = array_values(array_filter([(string)($agent['os_name'] ?? ''), (string)($agent['site_name'] ?? '')]));
+
 \Html::header('Agente SentinelOne', $_SERVER['PHP_SELF'], 'plugins', 'sentinelone');
 echo "<style>.container-xl,.container-lg{max-width:100%!important}</style>";
 ?>
 <div class="page-body">
 <div class="container-fluid mt-3">
 
-<div class="d-flex align-items-center gap-2 mb-3">
+<div class="d-flex align-items-center mb-3">
    <a href="<?= $h($listUrl) ?>" class="btn btn-sm btn-outline-secondary">
       <span class="ti ti-arrow-left"></span> Voltar
    </a>
-   <h2 class="mb-0 flex-grow-1"><?= $h($agent['computer_name'] ?? 'Agente') ?></h2>
-   <div class="d-flex gap-1">
-      <?php if ($infected): ?><span class="s1-badge s1-badge--critical">infectado</span><?php endif; ?>
-      <?php if ($isQ): ?><span class="s1-badge s1-badge--critical">quarentena</span><?php endif; ?>
+</div>
+
+<div class="s1-asset-card mb-3">
+   <div class="s1-asset-card__head">
+      <span class="s1-logo s1-logo--solid"><span class="ti ti-shield-half-filled"></span></span>
+      <div>
+         <h3><?= $h($agent['computer_name'] ?: ($agent['sentinelone_id'] ?? 'Agente')) ?></h3>
+         <?php if ($subtitleParts !== []): ?>
+         <small><?= $h(implode(' · ', $subtitleParts)) ?></small>
+         <?php endif; ?>
+      </div>
+      <div class="s1-asset-card__spacer"></div>
+      <?php if ($infected): ?><span class="s1-badge s1-badge--critical"><span class="ti ti-bug"></span> infectado</span><?php endif; ?>
+      <?php if ($isQ): ?><span class="s1-badge s1-badge--critical"><span class="ti ti-network-off"></span> quarentena</span><?php endif; ?>
+      <?php if ($versionOutdated): ?>
+      <span class="s1-badge s1-badge--warning" title="Versao minima configurada: <?= $h($minVersion) ?>">&#9888; desatualizado</span>
+      <?php endif; ?>
       <span class="s1-badge <?= $isOnline ? 's1-badge--ok' : 's1-badge--muted' ?>">
-         <?= $isOnline ? 'online' : 'offline' ?>
+         <span class="ti <?= $isOnline ? 'ti-plug-connected' : 'ti-plug-connected-x' ?>"></span> <?= $isOnline ? 'online' : 'offline' ?>
       </span>
+      <?php if ($consoleUrl !== ''): ?>
+      <a class="btn btn-sm btn-light" href="<?= $h($consoleUrl) ?>" target="_blank" rel="noopener">
+         <span class="ti ti-external-link"></span> Console
+      </a>
+      <?php endif; ?>
+   </div>
+   <div class="s1-asset-card__body">
+   <div class="s1-kv">
+      <div class="s1-kv__item"><span>Sistema operacional</span><strong><?= $h($agent['os_name'] ?? '-') ?></strong></div>
+      <div class="s1-kv__item"><span>Versao do agente</span><strong><?= $h($agentVersion !== '' ? $agentVersion : '-') ?></strong></div>
+      <div class="s1-kv__item"><span>IP</span><strong><?= $h($agent['ip'] ?? '-') ?></strong></div>
+      <div class="s1-kv__item"><span>MAC</span><strong><?= $h($agent['mac'] ?? '-') ?></strong></div>
+      <div class="s1-kv__item"><span>Serial</span><strong><?= $h($agent['serial'] ?? '-') ?></strong></div>
+      <div class="s1-kv__item"><span>UUID</span><strong style="font-size:.82rem"><?= $h($agent['uuid'] ?? '-') ?></strong></div>
+      <div class="s1-kv__item"><span>Site</span><strong><?= $h($agent['site_name'] ?? '-') ?></strong></div>
+      <div class="s1-kv__item"><span>Grupo</span><strong><?= $h($agent['group_name'] ?? '-') ?></strong></div>
+      <div class="s1-kv__item"><span>Ultimo contato</span><strong><?= $h($agent['last_active_at'] ?? '-') ?></strong></div>
+      <?php if ($computerId > 0): ?>
+      <div class="s1-kv__item">
+         <span>Computador GLPI</span>
+         <strong><a href="<?= $h($rootDoc . '/front/computer.form.php?id=' . $computerId) ?>">#<?= $computerId ?> <span class="ti ti-external-link" style="font-size:.8rem"></span></a></strong>
+      </div>
+      <?php endif; ?>
+   </div>
    </div>
 </div>
 
 <div class="row g-3">
 
-<!-- Info -->
-<div class="col-lg-5">
-<div class="sentinelone-panel">
-   <div class="sentinelone-panel__head"><h3>Informacoes do agente</h3></div>
-   <div class="sentinelone-panel__body">
-   <table class="table table-sm mb-0">
-   <tbody>
-      <tr><th>Sistema operacional</th><td><?= $h($agent['os_name'] ?? '-') ?></td></tr>
-      <tr><th>Versao do agente</th><td><?= $h($agent['agent_version'] ?? '-') ?></td></tr>
-      <tr><th>IP</th><td><?= $h($agent['ip'] ?? '-') ?></td></tr>
-      <tr><th>MAC</th><td><?= $h($agent['mac'] ?? '-') ?></td></tr>
-      <tr><th>Serial</th><td><?= $h($agent['serial'] ?? '-') ?></td></tr>
-      <tr><th>UUID</th><td><small><?= $h($agent['uuid'] ?? '-') ?></small></td></tr>
-      <tr><th>Site</th><td><?= $h($agent['site_name'] ?? '-') ?></td></tr>
-      <tr><th>Grupo</th><td><?= $h($agent['group_name'] ?? '-') ?></td></tr>
-      <tr><th>Ultimo contato</th><td><?= $h($agent['last_active_at'] ?? '-') ?></td></tr>
-      <?php if ($computerId > 0): ?>
-      <tr><th>Computador GLPI</th><td>
-         <a href="<?= $h($rootDoc . '/front/computer.form.php?id=' . $computerId) ?>">
-            #<?= $computerId ?> <span class="ti ti-external-link"></span>
-         </a>
-      </td></tr>
-      <?php endif; ?>
-      <?php if ($consoleUrl !== ''): ?>
-      <tr><th>Console S1</th><td>
-         <a href="<?= $h($consoleUrl) ?>" target="_blank" rel="noopener">
-            Abrir <span class="ti ti-external-link"></span>
-         </a>
-      </td></tr>
-      <?php endif; ?>
-   </tbody>
-   </table>
-   </div>
-</div>
-</div>
-
 <!-- Acoes -->
-<div class="col-lg-7">
+<div class="col-12">
 <div class="sentinelone-panel">
-   <div class="sentinelone-panel__head"><h3>Acoes remotas</h3></div>
+   <div class="sentinelone-panel__head">
+      <div class="sentinelone-panel__title">
+         <span class="sentinelone-panel__icon"><span class="ti ti-adjustments-bolt"></span></span>
+         <div>
+            <h3>Acoes remotas</h3>
+            <p>Comandos enviados direto ao agente na console SentinelOne</p>
+         </div>
+      </div>
+   </div>
    <div class="sentinelone-panel__body">
    <?php if (!$allowActions): ?>
-   <div class="alert alert-warning mb-0">
+   <div class="alert alert-warning mb-0 d-flex align-items-center gap-2">
+      <span class="ti ti-lock"></span>
       <?php if (!$hasSyncRight): ?>
-      Sem permissao para executar acoes.
+      Sem permissão para executar ações.
       <?php else: ?>
-      Acoes remotas desabilitadas. Ative em <a href="<?= $h($rootDoc . '/plugins/sentinelone/front/config.form.php') ?>">configuracoes</a>.
+      Ações remotas desabilitadas. Ative em <a href="<?= $h($rootDoc . '/plugins/sentinelone/front/config.form.php') ?>">configurações</a>.
       <?php endif; ?>
    </div>
    <?php else: ?>
@@ -190,8 +206,8 @@ echo "<style>.container-xl,.container-lg{max-width:100%!important}</style>";
       <input type="hidden" name="action" value="restart_agent">
       <input type="hidden" name="agent_id" value="<?= $id ?>">
       <button class="btn btn-sm btn-outline-warning" type="submit"
-         onclick="return confirm('Reiniciar o servico do agente SentinelOne neste endpoint?')">
-         <span class="ti ti-refresh"></span> Restart Agente
+         onclick="return confirm('Reiniciar o serviço do agente SentinelOne neste endpoint?')">
+         <span class="ti ti-refresh"></span> Reiniciar Agente
       </button>
    </form>
 
@@ -210,7 +226,7 @@ echo "<style>.container-xl,.container-lg{max-width:100%!important}</style>";
       <input type="hidden" name="action" value="quarantine_agent">
       <input type="hidden" name="agent_id" value="<?= $id ?>">
       <button class="btn btn-sm btn-outline-danger" type="submit"
-         onclick="return confirm('Isolar este endpoint da rede? Ele perdera conectividade exceto com a console SentinelOne.')">
+         onclick="return confirm('Isolar este endpoint da rede? Ele perderá conectividade exceto com a console SentinelOne.')">
          <span class="ti ti-network-off"></span> Isolar da Rede
       </button>
    </form>
@@ -226,18 +242,24 @@ echo "<style>.container-xl,.container-lg{max-width:100%!important}</style>";
 <div class="col-12">
 <div class="sentinelone-panel">
    <div class="sentinelone-panel__head">
-      <h3>Ameacas recentes</h3>
+      <div class="sentinelone-panel__title">
+         <span class="sentinelone-panel__icon"><span class="ti ti-shield-search"></span></span>
+         <div>
+            <h3>Ameaças recentes</h3>
+            <p>Últimas 10 detecções sincronizadas para este endpoint</p>
+         </div>
+      </div>
       <a href="<?= $h($rootDoc . '/plugins/sentinelone/front/threat.php') ?>">Ver todas</a>
    </div>
    <?php if ($threats === []): ?>
    <div class="sentinelone-panel__body">
-      <div class="sentinelone-empty">Nenhuma ameaca registrada para este endpoint.</div>
+      <div class="sentinelone-empty">Nenhuma ameaça registrada para este endpoint.</div>
    </div>
    <?php else: ?>
    <div class="table-responsive">
    <table class="table table-vcenter table-hover mb-0">
    <thead><tr>
-      <th>Ameaca</th><th>Classificacao</th><th>Status</th>
+      <th>Ameaça</th><th>Classificação</th><th>Status</th>
       <th>Severidade</th><th>Detectada em</th><th>Ticket</th>
    </tr></thead>
    <tbody>

@@ -2,7 +2,7 @@
 
 > Plugin para GLPI 11 que integra o SentinelOne ao inventário e ao service desk: dashboard operacional, sincronização de agentes, ameaças, CVEs e dispositivos rogues, tickets automáticos, alertas por e-mail e **relatório executivo premium** — na tela e no e-mail.
 
-🏷️ Versão: `1.7.0` · Autoria: Celso / Claude · Licença: GPLv3+
+🏷️ Versão: `1.8.0` · Autoria: Celso / Claude · Licença: GPLv3+
 
 ---
 
@@ -40,6 +40,8 @@
 - 🔥 **EPSS + CISA KEV** (novo em v1.6.0): enriquecimento diário com probabilidade de exploração (FIRST.org) e catálogo de exploração ativa da CISA — badges 🔥 KEV (☠ ransomware), coluna EPSS, Top CVEs priorizado por exploração real e KPI "Exposição KEV" no dashboard
 - 🎫 **Auto-ticket KEV** (novo em v1.7.0): opt-in que abre um ticket consolidado por endpoint (urgência máxima) quando um CVE do catálogo KEV é detectado — cada par endpoint+CVE gera ticket uma única vez
 - 🩺 **Boletim de Saúde da Frota** (novo em v1.7.0): nota 0–10 por endpoint (conectividade, versão, infecção, quarentena, ameaças abertas, CVEs críticos/KEV), veredito saudável/atenção/crítico, pior nota primeiro e exportação em PDF
+- 🔗 **Correlação cross-plugin** (novo em v1.8.0): badges "Tanium ×N" / "Nessus ×N" nas telas de CVE quando o mesmo achado também é reportado por esses plugins — 100% opcional, sem eles instalados nada muda
+- 🕵️ **Auditoria de exclusões** (novo em v1.8.0): importa a allowlist da console (paths, hashes, certificados) com quem criou, quando e o escopo; destaca exclusões criadas nos últimos 7 dias — o ponto cego clássico do EDR
 
 ### 🤖 Automação avançada
 
@@ -55,7 +57,7 @@
 - 🖼️ Logo próprio na tela de plugins do GLPI
 - 🔗 Deep links opcionais para a console SentinelOne (endpoint e ameaça)
 - 🧭 Onboarding guiado quando a integração ainda não está configurada
-- 🌐 i18n completa: pt_BR com acentuação correta (374 strings) e en_US (383 strings), `.mo` compilados
+- 🌐 i18n completa: pt_BR com acentuação correta (406 strings) e en_US (415 strings), `.mo` compilados
 
 ---
 
@@ -182,6 +184,7 @@ Criadas desabilitadas na instalação. Ative em **Configurar > Ações automáti
 | `syncrogues` | Configurável |
 | `synccves` | Configurável |
 | `enrichcves` | 24 h |
+| `syncexclusions` | 24 h |
 | `alertoffline` | 4 h |
 | `reportweekly` | 7 dias |
 | `purgelogs` | 24 h |

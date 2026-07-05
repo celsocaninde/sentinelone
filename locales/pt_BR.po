@@ -1136,3 +1136,106 @@ msgid "%d ameaca nao mitigada"
 msgid_plural "%d ameacas nao mitigadas"
 msgstr[0] "%d ameaça não mitigada"
 msgstr[1] "%d ameaças não mitigadas"
+
+#, php-format
+msgid "Tambem reportado pelo Tanium em %d achado(s) aberto(s)"
+msgstr "Também reportado pelo Tanium em %d achado(s) aberto(s)"
+
+#, php-format
+msgid "Tambem reportado pelo Tenable Nessus em %d achado(s) aberto(s)"
+msgstr "Também reportado pelo Tenable Nessus em %d achado(s) aberto(s)"
+
+msgid "Sincronizar exclusoes da console (auditoria)"
+msgstr "Sincronizar exclusões da console (auditoria)"
+
+msgid "Importa as exclusoes (allowlist de paths, hashes e certificados) configuradas na console para auditoria: quem criou, quando e com que escopo. Exclusao e onde ameacas se escondem do EDR."
+msgstr "Importa as exclusões (allowlist de paths, hashes e certificados) configuradas na console para auditoria: quem criou, quando e com que escopo. Exclusão é onde ameaças se escondem do EDR."
+
+msgid "Caminho"
+msgstr "Caminho"
+
+msgid "Hash"
+msgstr "Hash"
+
+msgid "Certificado"
+msgstr "Certificado"
+
+msgid "Navegador"
+msgstr "Navegador"
+
+msgid "Tipo de arquivo"
+msgstr "Tipo de arquivo"
+
+msgid "Outro"
+msgstr "Outro"
+
+msgid "Exclusoes"
+msgstr "Exclusões"
+
+msgid "OS"
+msgstr "SO"
+
+msgid "Tipo"
+msgstr "Tipo"
+
+msgid "Valor"
+msgstr "Valor"
+
+msgid "Sincronizar agora"
+msgstr "Sincronizar agora"
+
+msgid "Auditoria de exclusoes"
+msgstr "Auditoria de exclusões"
+
+msgid "Total de exclusoes"
+msgstr "Total de exclusões"
+
+msgid "Na console SentinelOne"
+msgstr "Na console SentinelOne"
+
+#, php-format
+msgid "Criadas nos ultimos %d dias"
+msgstr "Criadas nos últimos %d dias"
+
+msgid "Merecem revisao"
+msgstr "Merecem revisão"
+
+msgid "exclusoes deste tipo"
+msgstr "exclusões deste tipo"
+
+msgid "Exclusoes da console (allowlist)"
+msgstr "Exclusões da console (allowlist)"
+
+msgid "Buscar por valor, autor ou escopo..."
+msgstr "Buscar por valor, autor ou escopo..."
+
+msgid "Todos os tipos"
+msgstr "Todos os tipos"
+
+msgid "Nenhuma exclusao sincronizada ainda. Ative \"Sincronizar exclusoes da console (auditoria)\" na configuracao e sincronize."
+msgstr "Nenhuma exclusão sincronizada ainda. Ative \"Sincronizar exclusões da console (auditoria)\" na configuração e sincronize."
+
+msgid "Nenhuma exclusao encontrada para os filtros selecionados."
+msgstr "Nenhuma exclusão encontrada para os filtros selecionados."
+
+msgid "Escopo"
+msgstr "Escopo"
+
+msgid "Criado por"
+msgstr "Criado por"
+
+msgid "Criada em"
+msgstr "Criada em"
+
+#, php-format
+msgid "Criada nos ultimos %d dias"
+msgstr "Criada nos últimos %d dias"
+
+msgid "recente"
+msgstr "recente"
+
+#, php-format
+msgid "%d exclusao"
+msgid_plural "%d exclusoes"
+msgstr[0] "%d exclusão"
+msgstr[1] "%d exclusões"

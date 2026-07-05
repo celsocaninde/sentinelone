@@ -29,7 +29,7 @@ function check(string $name, bool $ok, string $extra = ''): void
 global $DB;
 
 // 1) Classes principais autoloadam
-foreach (['Agent', 'Threat', 'Cve', 'Enrichment', 'HealthReport', 'KevTicket', 'TicketManager', 'Sync', 'Config', 'Dashboard'] as $class) {
+foreach (['Agent', 'Threat', 'Cve', 'Enrichment', 'HealthReport', 'KevTicket', 'TicketManager', 'Sync', 'Config', 'Dashboard', 'CrossPlugin', 'Exclusion'] as $class) {
    check("classe {$class} carrega", class_exists('GlpiPlugin\\Sentinelone\\' . $class));
 }
 
@@ -92,12 +92,68 @@ $cronRow = $DB->request([
    'FROM'  => 'glpi_crontasks',
    'WHERE' => ['itemtype' => GlpiPlugin\Sentinelone\Sync::class],
 ])->current();
-check('12 crons registradas', (int)($cronRow['cpt'] ?? 0) === 12, (string)($cronRow['cpt'] ?? 0));
+check('13 crons registradas', (int)($cronRow['cpt'] ?? 0) === 13, (string)($cronRow['cpt'] ?? 0));
 
 // 9) Locales compilados
 foreach (['pt_BR', 'en_US'] as $locale) {
    check("locale {$locale}.mo existe", is_file(__DIR__ . "/../locales/{$locale}.mo"));
 }
+
+// 10) CrossPlugin: degradacao graciosa + shape do retorno
+$sources = GlpiPlugin\Sentinelone\CrossPlugin::sources();
+check('CrossPlugin::sources devolve tanium e nessus', array_key_exists('tanium', $sources) && array_key_exists('nessus', $sources), json_encode($sources));
+$cveSample = $DB->request(['SELECT' => ['cve_id'], 'FROM' => GlpiPlugin\Sentinelone\Cve::getTable(), 'LIMIT' => 5]);
+$sampleIds = array_column(iterator_to_array($cveSample), 'cve_id');
+$cross = GlpiPlugin\Sentinelone\CrossPlugin::forCves($sampleIds);
+$crossShapeOk = true;
+foreach ($cross as $row) {
+   if (!array_key_exists('tanium', $row) || !array_key_exists('nessus', $row)) {
+      $crossShapeOk = false;
+   }
+}
+check('CrossPlugin::forCves nao lanca excecao e shape esta correto', $crossShapeOk, count($cross) . ' CVEs correlacionados');
+check('CrossPlugin::forCves([]) devolve array vazio', GlpiPlugin\Sentinelone\CrossPlugin::forCves([]) === []);
+
+// 11) Exclusion: tabela, upsert idempotente e resumo
+GlpiPlugin\Sentinelone\Exclusion::ensureTable();
+check('tabela de exclusoes criada', $DB->tableExists('glpi_plugin_sentinelone_exclusions'));
+
+$fake1 = [[
+   'id' => 'verify-harness-test-1',
+   'type' => 'path',
+   'value' => 'C:\\Windows\\Temp\\verify-harness',
+   'osType' => 'windows',
+   'userName' => 'harness',
+   'createdAt' => date('c'),
+]];
+$upsert1 = GlpiPlugin\Sentinelone\Exclusion::upsertFromApi($fake1);
+check('Exclusion::upsertFromApi importa 1 registro', $upsert1['imported'] === 1, json_encode($upsert1));
+$upsert1b = GlpiPlugin\Sentinelone\Exclusion::upsertFromApi($fake1);
+check('segunda chamada e idempotente (upsert, nao duplica)', $upsert1b['imported'] === 1);
+$countAfter = (int)($DB->request(['COUNT' => 'cpt', 'FROM' => 'glpi_plugin_sentinelone_exclusions', 'WHERE' => ['sentinelone_id' => 'verify-harness-test-1']])->current()['cpt'] ?? 0);
+check('sem linha duplicada apos 2 upserts', $countAfter === 1, (string)$countAfter);
+
+$exclSummary = GlpiPlugin\Sentinelone\Exclusion::summary();
+check('Exclusion::summary contabiliza o registro de teste', $exclSummary['total'] >= 1, json_encode($exclSummary));
+
+// Uma nova resposta da API sem o item 1 (mas nao vazia) deve remove-lo da
+// auditoria local — reflete que ele nao existe mais na console.
+$fake2 = [[
+   'id' => 'verify-harness-test-2',
+   'type' => 'white_hash',
+   'value' => 'deadbeef',
+   'userName' => 'harness',
+   'createdAt' => date('c'),
+]];
+$swap = GlpiPlugin\Sentinelone\Exclusion::upsertFromApi($fake2);
+check('exclusao ausente na nova resposta e removida da auditoria', $swap['removed'] >= 1, json_encode($swap));
+
+// Limpeza: harness nao deixa dado de teste na tabela de auditoria.
+$DB->doQuery("DELETE FROM `glpi_plugin_sentinelone_exclusions` WHERE sentinelone_id LIKE 'verify-harness-test-%'");
+$leftover = (int)($DB->request(['COUNT' => 'cpt', 'FROM' => 'glpi_plugin_sentinelone_exclusions', 'WHERE' => ['sentinelone_id' => ['LIKE', 'verify-harness-test-%']]])->current()['cpt'] ?? 0);
+check('harness limpou os dados de teste', $leftover === 0);
+
+check('config sync_exclusions existe', array_key_exists('sync_exclusions', $config), (string)$config['sync_exclusions']);
 
 echo "\nRESULT: {$pass} passed, {$fail} failed\n";
 exit($fail > 0 ? 1 : 0);

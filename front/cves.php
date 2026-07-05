@@ -1,5 +1,6 @@
 <?php
 
+use GlpiPlugin\Sentinelone\CrossPlugin;
 use GlpiPlugin\Sentinelone\Cve;
 use GlpiPlugin\Sentinelone\Enrichment;
 use GlpiPlugin\Sentinelone\Profile;
@@ -27,6 +28,9 @@ $agents  = Cve::getAgentsWithMostCves(20);
 $kevSummary = Enrichment::getKevSummary();
 $intelDate  = Enrichment::lastRefresh();
 $enrichMap  = Enrichment::forCves(array_column($topCves, 'cve_id'));
+
+// Correlação com outros scanners (Tanium/Nessus) — vazio se não instalados.
+$crossMap = CrossPlugin::forCves(array_column($topCves, 'cve_id'));
 
 // Badge KEV ao lado do CVE id (☠ quando usado em campanhas de ransomware).
 $kevBadge = static function (string $cveId) use ($enrichMap, $h): string {
@@ -244,7 +248,7 @@ $cvssChip = static function ($score, string $severity) use ($h): string {
                      <td>
                         <a class="s1-cve-link" href="<?= $h($cveLink) ?>" target="_blank" rel="noopener">
                            <?= $h($row['cve_id']) ?> <span class="ti ti-external-link" style="font-size:10px"></span>
-                        </a><?= $kevBadge((string)$row['cve_id']) ?>
+                        </a><?= $kevBadge((string)$row['cve_id']) ?><?= CrossPlugin::badgesHtml($crossMap[strtoupper((string)$row['cve_id'])] ?? null) ?>
                      </td>
                      <td><span class="s1-badge <?= $severityClass($sev) ?>"><?= $h($sev) ?></span></td>
                      <td><?= $cvssChip($row['cvss_score'] ?? null, $sev) ?></td>
