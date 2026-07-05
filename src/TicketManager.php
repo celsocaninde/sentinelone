@@ -165,9 +165,10 @@ class TicketManager
       $type     = defined('Ticket::INCIDENT_TYPE') ? \Ticket::INCIDENT_TYPE : 1;
       $computer = trim((string)($agent['computer_name'] ?? '')) ?: 'endpoint';
 
-      $lines   = [];
-      $lines[] = 'CVEs com exploracao ativa confirmada (catalogo CISA KEV) detectados pelo SentinelOne:';
-      $lines[] = '';
+      // Corpo em HTML: bonito no chamado (rich text do GLPI 11) e no e-mail
+      // de notificacao (##ticket.description## entra no template HTML).
+      $esc  = static fn($v): string => htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+      $html = '<p><strong>CVEs com exploracao ativa confirmada</strong> (catalogo CISA KEV) detectados pelo SentinelOne:</p><ul>';
       foreach ($cves as $cve) {
          $extra = [];
          if (($cve['cvss_score'] ?? null) !== null) {
@@ -176,24 +177,25 @@ class TicketManager
          if (($cve['epss_score'] ?? null) !== null) {
             $extra[] = 'EPSS ' . number_format((float)$cve['epss_score'] * 100, 0) . '%';
          }
-         if (!empty($cve['kev_ransomware'])) {
-            $extra[] = 'usado em RANSOMWARE';
-         }
          if (!empty($cve['application_name'])) {
-            $extra[] = (string)$cve['application_name'];
+            $extra[] = $esc($cve['application_name']);
          }
-         $lines[] = '- ' . $cve['cve_id'] . ' (' . strtoupper((string)($cve['severity'] ?? '')) . ($extra !== [] ? ' — ' . implode(', ', $extra) : '') . ')';
+         $html .= '<li><a href="https://www.cve.org/CVERecord?id=' . rawurlencode((string)$cve['cve_id']) . '">'
+            . '<strong>' . $esc($cve['cve_id']) . '</strong></a>'
+            . ' — ' . $esc(strtoupper((string)($cve['severity'] ?? '')))
+            . ($extra !== [] ? ' · ' . implode(' · ', $extra) : '')
+            . (!empty($cve['kev_ransomware']) ? ' · <span style="color:#dc2626"><strong>usado em RANSOMWARE</strong></span>' : '')
+            . '</li>';
       }
-      $lines[] = '';
-      $lines[] = 'Endpoint:   ' . $computer;
-      $lines[] = 'Site:       ' . (string)($agent['site_name'] ?? '-');
-      $lines[] = 'Referencia: https://www.cisa.gov/known-exploited-vulnerabilities-catalog';
-      $lines[] = '';
-      $lines[] = 'Priorize a atualizacao das aplicacoes afetadas: estes CVEs estao sendo explorados agora.';
+      $html .= '</ul>'
+         . '<p>Endpoint: <strong>' . $esc($computer) . '</strong>'
+         . ' &nbsp;·&nbsp; Site: ' . $esc((string)($agent['site_name'] ?? '-')) . '<br>'
+         . 'Referencia: <a href="https://www.cisa.gov/known-exploited-vulnerabilities-catalog">catalogo CISA KEV</a></p>'
+         . '<p><strong>Priorize a atualizacao das aplicacoes afetadas:</strong> estes CVEs estao sendo explorados agora.</p>';
 
       $input = [
          'name'        => '[SentinelOne] CVE em exploracao ativa (KEV) em ' . self::short($computer, 60),
-         'content'     => implode("\n", $lines),
+         'content'     => $html,
          'entities_id' => $entityId,
          'type'        => $type,
          'urgency'     => 5,
