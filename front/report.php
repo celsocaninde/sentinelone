@@ -6,6 +6,7 @@ include('../../../inc/includes.php');
 
 use GlpiPlugin\Sentinelone\Config as SentineloneConfig;
 use GlpiPlugin\Sentinelone\Cve;
+use GlpiPlugin\Sentinelone\Enrichment;
 use GlpiPlugin\Sentinelone\Profile;
 use GlpiPlugin\Sentinelone\RogueDevice;
 use GlpiPlugin\Sentinelone\Sync;
@@ -90,6 +91,8 @@ $cveTotal   = (int)($cveStats['total']       ?? 0);
 $cveCrit    = (int)($cvesBySev['CRITICAL']   ?? 0);
 $cveHigh    = (int)($cvesBySev['HIGH']       ?? 0);
 $cveMed     = (int)($cvesBySev['MEDIUM']     ?? 0);
+$kevSummary = Enrichment::getKevSummary();
+$kevCves    = (int)$kevSummary['cves'];
 $rogues     = $DB->tableExists(RogueDevice::getTable()) ? RogueDevice::countTotal() : 0;
 $infected   = array_slice($s['attention_agents'] ?? [], 0, 8);
 $genAt      = date('d/m/Y \à\s H:i');
@@ -329,7 +332,9 @@ Html::header('SentinelOne – Relatório Executivo', '', 'plugins', 'sentinelone
         <div class="s1r-kpi__eye">Vulnerabilidades CVE</div>
         <div class="s1r-kpi__num"><?= $cveTotal ?><span> total</span></div>
         <div class="s1r-kpi__sub">Críticas: <?= $cveCrit ?> &nbsp;·&nbsp; Altas: <?= $cveHigh ?> &nbsp;·&nbsp; Médias: <?= $cveMed ?></div>
-        <?php if ($cveCrit > 0): ?>
+        <?php if ($kevCves > 0): ?>
+        <span class="s1r-kpi__tag s1r-tag-bad">🔥 <?= $kevCves ?> em exploração ativa (KEV)</span>
+        <?php elseif ($cveCrit > 0): ?>
         <span class="s1r-kpi__tag s1r-tag-bad"><?= $cveCrit ?> críticas</span>
         <?php elseif ($cveTotal === 0): ?>
         <span class="s1r-kpi__tag s1r-tag-ok">Nenhuma CVE</span>

@@ -2,7 +2,7 @@
 
 > Plugin para GLPI 11 que integra o SentinelOne ao inventário e ao service desk: dashboard operacional, sincronização de agentes, ameaças, CVEs e dispositivos rogues, tickets automáticos, alertas por e-mail e **relatório executivo premium** — na tela e no e-mail.
 
-🏷️ Versão: `1.6.0` · Autoria: Celso / Claude · Licença: GPLv3+
+🏷️ Versão: `1.7.0` · Autoria: Celso / Claude · Licença: GPLv3+
 
 ---
 
@@ -38,6 +38,8 @@
 - 🔄 Sincronização de CVEs por agente via `/threats/cve` (requer plano Vulnerability Management)
 - 🛑 Detecção automática quando o endpoint CVE não está disponível no plano
 - 🔥 **EPSS + CISA KEV** (novo em v1.6.0): enriquecimento diário com probabilidade de exploração (FIRST.org) e catálogo de exploração ativa da CISA — badges 🔥 KEV (☠ ransomware), coluna EPSS, Top CVEs priorizado por exploração real e KPI "Exposição KEV" no dashboard
+- 🎫 **Auto-ticket KEV** (novo em v1.7.0): opt-in que abre um ticket consolidado por endpoint (urgência máxima) quando um CVE do catálogo KEV é detectado — cada par endpoint+CVE gera ticket uma única vez
+- 🩺 **Boletim de Saúde da Frota** (novo em v1.7.0): nota 0–10 por endpoint (conectividade, versão, infecção, quarentena, ameaças abertas, CVEs críticos/KEV), veredito saudável/atenção/crítico, pior nota primeiro e exportação em PDF
 
 ### 🤖 Automação avançada
 
@@ -53,7 +55,7 @@
 - 🖼️ Logo próprio na tela de plugins do GLPI
 - 🔗 Deep links opcionais para a console SentinelOne (endpoint e ameaça)
 - 🧭 Onboarding guiado quando a integração ainda não está configurada
-- 🌐 i18n completa: pt_BR com acentuação correta (340 strings) e en_US (349 strings), `.mo` compilados
+- 🌐 i18n completa: pt_BR com acentuação correta (374 strings) e en_US (383 strings), `.mo` compilados
 
 ---
 
@@ -218,6 +220,10 @@ A aba **CVEs globais** exibe:
 - Aplicações mais vulneráveis
 - Endpoints com mais CVEs críticos
 - KPI **Exposição KEV**: CVEs da frota presentes no catálogo CISA de exploração ativa
+
+### 🩺 Boletim de Saúde da Frota (v1.7.0)
+
+Página **Boletim** (botão no dashboard): cada endpoint recebe nota 0–10 calculada só com dados locais do plugin — infecção ativa (-4), quarentena (-2), silêncio/offline (até -3), versão desatualizada (-1), ameaças não mitigadas (até -2), CVEs críticos/altos (até -2) e CVEs KEV (-2). Cards de resumo da frota, tabela do pior para o melhor com fatores de risco por máquina e **Exportar PDF** com letterhead.
 
 ### 🔥 Threat intel EPSS / CISA KEV (v1.6.0)
 

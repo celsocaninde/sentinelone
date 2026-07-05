@@ -125,6 +125,7 @@ echo "<a class='btn btn-outline-secondary' href='" . $h($roguesUrl) . "'><span c
 echo "<a class='btn btn-outline-secondary' href='" . $h($cvesUrl) . "'><span class='ti ti-shield-exclamation'></span>" . __('CVEs', 'sentinelone') . "</a>";
 $reportUrl = $rootDoc . '/plugins/sentinelone/front/report.php';
 echo "<a class='btn btn-outline-primary s1-btn-report' href='" . $h($reportUrl) . "' title='Relatório executivo com índice de proteção, KPIs e tendências'><span class='ti ti-chart-bar'></span>" . __('Relatorio', 'sentinelone') . "</a>";
+echo "<a class='btn btn-outline-primary' href='" . $h($rootDoc . '/plugins/sentinelone/front/healthreport.php') . "' title='" . $h(__('Nota 0-10 por endpoint com fatores de risco', 'sentinelone')) . "'><span class='ti ti-heart-rate-monitor'></span>" . __('Boletim', 'sentinelone') . "</a>";
 if ($consoleUrl !== '') {
    echo "<a class='btn btn-outline-secondary' href='" . $h($consoleUrl) . "' target='_blank' rel='noopener'><span class='ti ti-external-link'></span>" . __('Console', 'sentinelone') . "</a>";
 }

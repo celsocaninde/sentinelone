@@ -152,6 +152,78 @@ class TicketManager
    }
 
    /**
+    * Ticket consolidado de CVEs em exploracao ativa (CISA KEV) num endpoint.
+    * Urgencia maxima: exploracao confirmada no mundo real.
+    *
+    * @param array<int,array> $cves linhas com cve_id/severity/cvss/epss/app
+    */
+   public static function createForKev(array $agent, array $cves, ?array $config = null): int
+   {
+      $config ??= Config::getConfig();
+      $ticket   = new \Ticket();
+      $entityId = (int)($agent['entities_id'] ?? 0) ?: (int)$config['entity_id'];
+      $type     = defined('Ticket::INCIDENT_TYPE') ? \Ticket::INCIDENT_TYPE : 1;
+      $computer = trim((string)($agent['computer_name'] ?? '')) ?: 'endpoint';
+
+      $lines   = [];
+      $lines[] = 'CVEs com exploracao ativa confirmada (catalogo CISA KEV) detectados pelo SentinelOne:';
+      $lines[] = '';
+      foreach ($cves as $cve) {
+         $extra = [];
+         if (($cve['cvss_score'] ?? null) !== null) {
+            $extra[] = 'CVSS ' . number_format((float)$cve['cvss_score'], 1);
+         }
+         if (($cve['epss_score'] ?? null) !== null) {
+            $extra[] = 'EPSS ' . number_format((float)$cve['epss_score'] * 100, 0) . '%';
+         }
+         if (!empty($cve['kev_ransomware'])) {
+            $extra[] = 'usado em RANSOMWARE';
+         }
+         if (!empty($cve['application_name'])) {
+            $extra[] = (string)$cve['application_name'];
+         }
+         $lines[] = '- ' . $cve['cve_id'] . ' (' . strtoupper((string)($cve['severity'] ?? '')) . ($extra !== [] ? ' — ' . implode(', ', $extra) : '') . ')';
+      }
+      $lines[] = '';
+      $lines[] = 'Endpoint:   ' . $computer;
+      $lines[] = 'Site:       ' . (string)($agent['site_name'] ?? '-');
+      $lines[] = 'Referencia: https://www.cisa.gov/known-exploited-vulnerabilities-catalog';
+      $lines[] = '';
+      $lines[] = 'Priorize a atualizacao das aplicacoes afetadas: estes CVEs estao sendo explorados agora.';
+
+      $input = [
+         'name'        => '[SentinelOne] CVE em exploracao ativa (KEV) em ' . self::short($computer, 60),
+         'content'     => implode("\n", $lines),
+         'entities_id' => $entityId,
+         'type'        => $type,
+         'urgency'     => 5,
+         'impact'      => self::scale($config['ticket_impact'] ?? 4, 1, 5),
+         'priority'    => 5,
+      ];
+
+      $categoryId = (int)($config['ticket_category_id'] ?? 0);
+      if ($categoryId > 0) {
+         $input['itilcategories_id'] = $categoryId;
+      }
+
+      self::applyRequester($input, $config);
+      self::applyAssignGroup($input, $config);
+
+      $ticketId = $ticket->add($input);
+
+      if (!$ticketId) {
+         throw new \RuntimeException('Nao foi possivel criar ticket KEV do SentinelOne.');
+      }
+
+      $computerId = (int)($agent['computers_id'] ?? 0);
+      if ($computerId > 0) {
+         self::linkComputer((int)$ticketId, $computerId);
+      }
+
+      return (int)$ticketId;
+   }
+
+   /**
     * Resolucao final da ameaca: registra a SOLUCAO do ticket (ITILSolution) com
     * o que foi declarado no SentinelOne — veredito do analista e sua observacao,
     * ou a indicacao de que a ferramenta resolveu automaticamente. Adicionar a

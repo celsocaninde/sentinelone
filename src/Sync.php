@@ -112,8 +112,11 @@ class Sync
             $result['kev']
          ));
 
+         // Opt-in: ticket consolidado por endpoint para CVEs KEV ineditos.
+         [$kevTickets, ] = KevTicket::processNewFindings();
+
          if ($task !== null) {
-            $task->addVolume($result['epss'] + $result['kev']);
+            $task->addVolume($result['epss'] + $result['kev'] + $kevTickets);
          }
 
          return 1;
@@ -1335,6 +1338,7 @@ class Sync
       $cveTotal     = (int)($cveStats['total']    ?? 0);
       $cveCritical  = (int)($cvesBySev['CRITICAL'] ?? 0);
       $cveHigh      = (int)($cvesBySev['HIGH']    ?? 0);
+      $kevCves      = (int)(Enrichment::getKevSummary()['cves'] ?? 0);
 
       $h = '<!DOCTYPE html><html><head><meta charset="UTF-8"></head>'
          . '<body style="margin:0;padding:0;background:#f0eeff;font-family:Arial,sans-serif">'
@@ -1384,6 +1388,9 @@ class Sync
          . '<div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#16a34a;margin-bottom:6px;font-family:Arial,sans-serif">Vulnerabilidades CVE</div>'
          . '<div style="font-size:30px;font-weight:900;color:#166534;line-height:1;font-family:Arial,sans-serif">' . $cveTotal . '<span style="font-size:14px;font-weight:400;color:#9ca3af"> total</span></div>'
          . '<div style="font-size:11px;color:#6b7280;margin-top:5px;font-family:Arial,sans-serif">Críticas: ' . $cveCritical . '  &nbsp;·&nbsp;  Altas: ' . $cveHigh . '</div>'
+         . ($kevCves > 0
+            ? '<div style="font-size:11px;font-weight:700;color:#dc2626;margin-top:4px;font-family:Arial,sans-serif">🔥 ' . $kevCves . ' em exploração ativa (CISA KEV)</div>'
+            : '')
          . '</td></tr></table>'
          . '</td></tr>'
 

@@ -383,6 +383,7 @@ function plugin_sentinelone_uninstall(): bool
       'glpi_plugin_sentinelone_threats',
       'glpi_plugin_sentinelone_cves',
       'glpi_plugin_sentinelone_cve_enrichment',
+      'glpi_plugin_sentinelone_kev_tickets',
       'glpi_plugin_sentinelone_rogue_devices',
       'glpi_plugin_sentinelone_failedtickets',
       'glpi_plugin_sentinelone_agents',

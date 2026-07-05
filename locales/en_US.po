@@ -1054,3 +1054,114 @@ msgstr "Exploit Prediction Scoring System — probability of exploitation within
 #, php-format
 msgid "intel EPSS/KEV de %s"
 msgstr "EPSS/KEV intel from %s"
+
+msgid "Infeccao ativa"
+msgstr "Active infection"
+
+msgid "Em quarentena de rede"
+msgstr "Network quarantined"
+
+#, php-format
+msgid "%d dias sem contato"
+msgstr "%d days silent"
+
+msgid "Offline agora"
+msgstr "Offline now"
+
+#, php-format
+msgid "Agente desatualizado (%s)"
+msgstr "Outdated agent (%s)"
+
+#, php-format
+msgid "%d CVEs criticos/altos"
+msgstr "%d critical/high CVEs"
+
+#, php-format
+msgid "%d CVEs em exploracao ativa (KEV)"
+msgstr "%d actively exploited CVEs (KEV)"
+
+msgid "Saudavel"
+msgstr "Healthy"
+
+msgid "Atencao"
+msgstr "Warning"
+
+msgid "Critico"
+msgstr "Critical"
+
+msgid "SentinelOne — Boletim de Saude da Frota"
+msgstr "SentinelOne — Fleet Health Report"
+
+msgid "Boletim de Saude da Frota"
+msgstr "Fleet Health Report"
+
+msgid "Nota 0-10 por endpoint: conectividade, versao, infeccoes, ameacas e CVEs em exploracao ativa."
+msgstr "0-10 score per endpoint: connectivity, version, infections, threats and actively exploited CVEs."
+
+msgid "Exportar PDF"
+msgstr "Export PDF"
+
+msgid "Nota media da frota"
+msgstr "Fleet average score"
+
+msgid "Saudaveis (nota >= 8)"
+msgstr "Healthy (score >= 8)"
+
+msgid "Atencao (5 a 7,9)"
+msgstr "Warning (5 to 7.9)"
+
+msgid "Criticos (nota < 5)"
+msgstr "Critical (score < 5)"
+
+msgid "Boletim de Saude da Frota SentinelOne"
+msgstr "SentinelOne Fleet Health Report"
+
+#, php-format
+msgid "Gerado em %1$s por %2$s"
+msgstr "Generated on %1$s by %2$s"
+
+msgid "Nota media"
+msgstr "Average score"
+
+msgid "Saudaveis"
+msgstr "Healthy"
+
+msgid "Criticos"
+msgstr "Critical"
+
+#, php-format
+msgid "Endpoints (%d) — pior nota primeiro"
+msgstr "Endpoints (%d) — worst score first"
+
+msgid "Nenhum agente sincronizado ainda."
+msgstr "No agents synced yet."
+
+msgid "Nota"
+msgstr "Score"
+
+msgid "Veredito"
+msgstr "Verdict"
+
+msgid "Fatores de risco"
+msgstr "Risk factors"
+
+msgid "Sem fatores de risco"
+msgstr "No risk factors"
+
+msgid "Boletim"
+msgstr "Health Report"
+
+msgid "Nota 0-10 por endpoint com fatores de risco"
+msgstr "0-10 score per endpoint with risk factors"
+
+msgid "Abrir ticket para CVE em exploracao ativa (KEV)"
+msgstr "Open ticket for actively exploited CVEs (KEV)"
+
+msgid "Apos a cron enrichcves, abre um ticket consolidado por endpoint com os CVEs do catalogo CISA KEV ainda nao tratados. Cada par endpoint+CVE gera ticket uma unica vez."
+msgstr "After the enrichcves cron, opens one consolidated ticket per endpoint with untreated CISA KEV CVEs. Each endpoint+CVE pair generates a ticket only once."
+
+#, php-format
+msgid "%d ameaca nao mitigada"
+msgid_plural "%d ameacas nao mitigadas"
+msgstr[0] "%d unmitigated threat"
+msgstr[1] "%d unmitigated threats"

@@ -1025,3 +1025,114 @@ msgstr "CISA KEV — exploração ativa E uso em ransomware"
 
 msgid "CISA KEV — exploracao ativa confirmada"
 msgstr "CISA KEV — exploração ativa confirmada"
+
+msgid "Infeccao ativa"
+msgstr "Infecção ativa"
+
+msgid "Em quarentena de rede"
+msgstr "Em quarentena de rede"
+
+#, php-format
+msgid "%d dias sem contato"
+msgstr "%d dias sem contato"
+
+msgid "Offline agora"
+msgstr "Offline agora"
+
+#, php-format
+msgid "Agente desatualizado (%s)"
+msgstr "Agente desatualizado (%s)"
+
+#, php-format
+msgid "%d CVEs criticos/altos"
+msgstr "%d CVEs críticos/altos"
+
+#, php-format
+msgid "%d CVEs em exploracao ativa (KEV)"
+msgstr "%d CVEs em exploração ativa (KEV)"
+
+msgid "Saudavel"
+msgstr "Saudável"
+
+msgid "Atencao"
+msgstr "Atenção"
+
+msgid "Critico"
+msgstr "Crítico"
+
+msgid "SentinelOne — Boletim de Saude da Frota"
+msgstr "SentinelOne — Boletim de Saúde da Frota"
+
+msgid "Boletim de Saude da Frota"
+msgstr "Boletim de Saúde da Frota"
+
+msgid "Nota 0-10 por endpoint: conectividade, versao, infeccoes, ameacas e CVEs em exploracao ativa."
+msgstr "Nota 0-10 por endpoint: conectividade, versão, infecções, ameaças e CVEs em exploração ativa."
+
+msgid "Exportar PDF"
+msgstr "Exportar PDF"
+
+msgid "Nota media da frota"
+msgstr "Nota média da frota"
+
+msgid "Saudaveis (nota >= 8)"
+msgstr "Saudáveis (nota ≥ 8)"
+
+msgid "Atencao (5 a 7,9)"
+msgstr "Atenção (5 a 7,9)"
+
+msgid "Criticos (nota < 5)"
+msgstr "Críticos (nota < 5)"
+
+msgid "Boletim de Saude da Frota SentinelOne"
+msgstr "Boletim de Saúde da Frota SentinelOne"
+
+#, php-format
+msgid "Gerado em %1$s por %2$s"
+msgstr "Gerado em %1$s por %2$s"
+
+msgid "Nota media"
+msgstr "Nota média"
+
+msgid "Saudaveis"
+msgstr "Saudáveis"
+
+msgid "Criticos"
+msgstr "Críticos"
+
+#, php-format
+msgid "Endpoints (%d) — pior nota primeiro"
+msgstr "Endpoints (%d) — pior nota primeiro"
+
+msgid "Nenhum agente sincronizado ainda."
+msgstr "Nenhum agente sincronizado ainda."
+
+msgid "Nota"
+msgstr "Nota"
+
+msgid "Veredito"
+msgstr "Veredito"
+
+msgid "Fatores de risco"
+msgstr "Fatores de risco"
+
+msgid "Sem fatores de risco"
+msgstr "Sem fatores de risco"
+
+msgid "Boletim"
+msgstr "Boletim"
+
+msgid "Nota 0-10 por endpoint com fatores de risco"
+msgstr "Nota 0-10 por endpoint com fatores de risco"
+
+msgid "Abrir ticket para CVE em exploracao ativa (KEV)"
+msgstr "Abrir ticket para CVE em exploração ativa (KEV)"
+
+msgid "Apos a cron enrichcves, abre um ticket consolidado por endpoint com os CVEs do catalogo CISA KEV ainda nao tratados. Cada par endpoint+CVE gera ticket uma unica vez."
+msgstr "Após a cron enrichcves, abre um ticket consolidado por endpoint com os CVEs do catálogo CISA KEV ainda não tratados. Cada par endpoint+CVE gera ticket uma única vez."
+
+#, php-format
+msgid "%d ameaca nao mitigada"
+msgid_plural "%d ameacas nao mitigadas"
+msgstr[0] "%d ameaça não mitigada"
+msgstr[1] "%d ameaças não mitigadas"

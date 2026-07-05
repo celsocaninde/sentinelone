@@ -47,6 +47,7 @@ class Config extends \CommonGLPI
          'threat_filter_query'  => '',
          'entity_id'            => '0',
          'create_tickets'       => '0',
+         'kev_auto_ticket'      => '0',
          'auto_close_tickets'   => '1',
          'ticket_threat_details' => '1',
          'sync_threat_notes'    => '0',
@@ -214,6 +215,7 @@ class Config extends \CommonGLPI
       $config['threat_filter_query'] = self::cleanQueryString($input['threat_filter_query'] ?? '');
       $config['entity_id'] = (string)max(0, (int)($input['entity_id'] ?? 0));
       $config['create_tickets'] = self::boolInput($input, 'create_tickets');
+      $config['kev_auto_ticket'] = self::boolInput($input, 'kev_auto_ticket');
       $config['auto_close_tickets'] = self::boolInput($input, 'auto_close_tickets');
       $config['ticket_threat_details'] = self::boolInput($input, 'ticket_threat_details');
       $config['sync_threat_notes'] = self::boolInput($input, 'sync_threat_notes');
@@ -387,6 +389,7 @@ class Config extends \CommonGLPI
       self::panelHead(__('Automacao', 'sentinelone'), __('O que o plugin faz automaticamente.', 'sentinelone'), 'ti-robot');
       echo "<div class='sentinelone-panel__body sentinelone-fields'>";
       self::renderYesNo('create_tickets', __('Criar tickets para ameacas', 'sentinelone'), (string)$config['create_tickets'] === '1', $canUpdate, __('Interruptor geral dos tickets de ameaca. Precisa de pelo menos uma regra abaixo.', 'sentinelone'));
+      self::renderYesNo('kev_auto_ticket', __('Abrir ticket para CVE em exploracao ativa (KEV)', 'sentinelone'), (string)($config['kev_auto_ticket'] ?? '0') === '1', $canUpdate, __('Apos a cron enrichcves, abre um ticket consolidado por endpoint com os CVEs do catalogo CISA KEV ainda nao tratados. Cada par endpoint+CVE gera ticket uma unica vez.', 'sentinelone'));
       self::renderYesNo('auto_close_tickets', __('Fechar tickets quando ameaca for resolvida', 'sentinelone'), (string)($config['auto_close_tickets'] ?? '1') === '1', $canUpdate, __('Quando o SentinelOne marcar a ameaca como mitigada/resolvida, o ticket correspondente e marcado como Solucionado com uma nota de resolucao.', 'sentinelone'));
       self::renderYesNo('ticket_threat_details', __('Postar nota forense detalhada ao abrir o ticket', 'sentinelone'), (string)($config['ticket_threat_details'] ?? '1') === '1', $canUpdate, __('Logo apos abrir o ticket, adiciona uma nota interna (privada) com os detalhes forenses da ameaca: processo e linha de comando, engine de deteccao, editor/assinatura, IP/usuario logado, acoes de mitigacao e MITRE ATT&CK.', 'sentinelone'));
       self::renderYesNo('sync_threat_notes', __('Sincronizar notas da console como comentarios no ticket', 'sentinelone'), (string)($config['sync_threat_notes'] ?? '0') === '1', $canUpdate, __('Para cada ameaca com ticket aberto, busca as notas da console SentinelOne e adiciona como acompanhamentos no GLPI. Aumenta o volume de chamadas a API.', 'sentinelone'));
